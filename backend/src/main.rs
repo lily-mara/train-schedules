@@ -2,7 +2,7 @@ use crate::error::{Error, Result};
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use chrono::{prelude::*, Weekday};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, env};
 use train_schedules_common::*;
 
 mod error;
@@ -20,10 +20,12 @@ struct AppState {
 fn main() {
     let sys = actix_rt::System::new("example");
 
-    HttpServer::new(|| {
+    let db_path = env::var("DB_PATH").unwrap_or("schedules.db");
+
+    HttpServer::new(move || {
         App::new()
             .data(AppState {
-                connection: sqlite::Connection::open("schedules.db").unwrap(),
+                connection: sqlite::Connection::open(&db_path).unwrap(),
             })
             .route("/", web::get().to(index))
             .route("/stations", web::get().to(stations))

@@ -6,3 +6,32 @@ services:
       - "9090:80"
     volumes:
       - "./dev-proxy/:/etc/nginx/conf.d/"
+
+  backend:
+    image: rust:1.38
+    volumes:
+      - "./:/code"
+      - "backend_target:/target"
+      - "cargo_home:/cargo-home"
+    environment:
+      CARGO_TARGET_DIR: "/target"
+      CARGO_HOME: "/cargo-home"
+    working_dir: "/code/backend"
+    command: cargo run
+
+  frontend:
+    image: rust:1.38
+    volumes:
+      - "./:/code"
+      - "frontend_target:/target"
+      - "cargo_home:/cargo-home"
+    environment:
+      CARGO_TARGET_DIR: "/target"
+      CARGO_HOME: "/cargo-home"
+    working_dir: "/code/backend"
+    command: cargo web start --host 0.0.0.0:8080
+
+volumes:
+  backend_target: {}
+  frontend_target: {}
+  cargo_home: {}

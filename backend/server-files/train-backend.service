@@ -1,0 +1,9 @@
+[Unit]
+Description=Train Backend Server
+
+[Service]
+ExecStart=/usr/local/bin/train-schedules
+Environment=DB_PATH=/var/run/train-schedules.db
+
+[Install]
+WantedBy=multi-user.target

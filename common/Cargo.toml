@@ -8,5 +8,5 @@ edition = "2018"
 
 [dependencies]
 serde = "1.0.99"
-yew = { path = "../../../yewstack/yew" }
+yew = "0.9"
 chrono = "*"

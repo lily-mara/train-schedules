@@ -36,7 +36,6 @@ where
 }
 
 fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, Error> {
-    log!(format!("{:?}", response));
     let response = deserialize(response)?;
     let (_, body) = response.into_parts();
 
