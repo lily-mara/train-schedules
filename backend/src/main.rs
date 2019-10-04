@@ -221,7 +221,7 @@ fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
 
     let mut add_days = 0;
     let mut hour = parts.next().unwrap().parse()?;
-    while hour > 24 {
+    while hour >= 24 {
         hour -= 24;
         add_days += 1;
     }
