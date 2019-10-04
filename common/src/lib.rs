@@ -32,15 +32,27 @@ impl Default for Direction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Departure {
-    pub departure_minute: i64,
-    pub arrival_minute: i64,
+    pub departure: DateTime<FixedOffset>,
+    pub arrival: DateTime<FixedOffset>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Times {
+    pub scheduled: Departure,
+    pub estimated: Option<EstimatedDeparture>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct EstimatedDeparture {
+    pub departure: Departure,
+    pub last_updated: DateTime<FixedOffset>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Trip {
     pub trip_id: i64,
-    pub start: Departure,
-    pub end: Departure,
+    pub start: Times,
+    pub end: Times,
 }
 
 impl From<i64> for Direction {
@@ -50,16 +62,6 @@ impl From<i64> for Direction {
             1 => Direction::South,
             _ => panic!("{} is not a valid direction", f),
         }
-    }
-}
-
-impl Departure {
-    fn departure_time(&self) -> String {
-        time_str(self.departure_minute)
-    }
-
-    fn arrival_time(&self) -> String {
-        time_str(self.arrival_minute)
     }
 }
 

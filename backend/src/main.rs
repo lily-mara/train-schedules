@@ -15,17 +15,20 @@ struct UpcomingTripsQuery {
 
 struct AppState {
     connection: sqlite::Connection,
+    api_key: String,
 }
 
 fn main() {
     let sys = actix_rt::System::new("example");
 
-    let db_path = env::var("DB_PATH").unwrap_or("schedules.db");
+    let db_path = env::var("DB_PATH").unwrap_or_else(|_| "schedules.db".to_owned());
+    let api_key = env::var("API_KEY").expect("API_KEY environment variable is required");
 
     HttpServer::new(move || {
         App::new()
             .data(AppState {
                 connection: sqlite::Connection::open(&db_path).unwrap(),
+                api_key: api_key.clone(),
             })
             .route("/", web::get().to(index))
             .route("/stations", web::get().to(stations))
@@ -129,7 +132,7 @@ fn get_upcoming_trips(
 
     let mut stmt = connection.prepare(format!(
         "
-        select departure_minute, arrival_minute, stop_times.trip_id, stop_id
+        select departure_time, arrival_time, stop_times.trip_id, stop_id
         from stop_times
         join trips on trips.trip_id=stop_times.trip_id
         where (stop_id=? or stop_id=?) and stop_times.trip_id=? and service_id in ({})
@@ -140,7 +143,7 @@ fn get_upcoming_trips(
 
     let start_station = load_station(connection, start_station_id)?;
     let end_station = load_station(connection, end_station_id)?;
-    let minute = current_minute();
+    let now = Local::now().with_timezone(&FixedOffset::east(0));
 
     let mut trips = HashMap::new();
 
@@ -161,19 +164,20 @@ fn get_upcoming_trips(
 
             let trip_id = stmt.read(2)?;
 
-            let departure_minute = stmt.read(0)?;
+            let departure_str: String = stmt.read(0)?;
+            let departure = parse_time(&departure_str)?;
 
-            if departure_minute < minute {
+            let arrival_str: String = stmt.read(1)?;
+            let arrival = parse_time(&arrival_str)?;
+
+            if departure < now || arrival < now {
                 continue;
             }
 
-            trips.entry(trip_id).or_insert_with(HashMap::new).insert(
-                station_name,
-                Departure {
-                    departure_minute,
-                    arrival_minute: stmt.read(1)?,
-                },
-            );
+            trips
+                .entry(trip_id)
+                .or_insert_with(HashMap::new)
+                .insert(station_name, Departure { departure, arrival });
         }
         stmt.reset()?;
     }
@@ -186,13 +190,24 @@ fn get_upcoming_trips(
 
             Some(Trip {
                 trip_id,
-                start,
-                end,
+                start: Times {
+                    scheduled: start,
+                    estimated: None,
+                },
+                end: Times {
+                    scheduled: end,
+                    estimated: None,
+                },
             })
         })
         .collect();
 
-    trips.sort_by(|a, b| a.start.departure_minute.cmp(&b.start.departure_minute));
+    trips.sort_by(|a, b| {
+        a.start
+            .scheduled
+            .departure
+            .cmp(&b.start.scheduled.departure)
+    });
 
     Ok(TripList {
         trips,
@@ -201,8 +216,30 @@ fn get_upcoming_trips(
     })
 }
 
+fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
+    let mut parts = time.split(':');
+
+    let mut add_days = 0;
+    let mut hour = parts.next().unwrap().parse()?;
+    while hour > 24 {
+        hour -= 24;
+        add_days += 1;
+    }
+
+    let minute = parts.next().unwrap().parse()?;
+    let second = parts.next().unwrap().parse()?;
+
+    let time = Local::today().and_hms(hour, minute, second) + chrono::Duration::days(add_days);
+
+    Ok(time.with_timezone(&time.offset()))
+}
+
+fn live_status() {
+    // https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json&stopCode={stop_code}
+}
+
 fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>> {
-    let today = chrono::Local::now();
+    let today = Local::now();
     let weekday = match today.weekday() {
         Weekday::Mon => "monday",
         Weekday::Tue => "tuesday",

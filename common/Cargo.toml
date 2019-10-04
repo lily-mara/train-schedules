@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 serde = "1.0.99"
 yew = "0.9"
-chrono = "*"
+chrono = { version = "0.4", features = ["serde"] }

@@ -3,6 +3,8 @@
 use yew::prelude::*;
 
 mod router;
+mod time;
+mod time_display;
 mod trip_display;
 mod trip_list;
 
