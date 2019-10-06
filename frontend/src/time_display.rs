@@ -42,14 +42,32 @@ impl Component for TimeDisplay {
 
 impl Renderable<Self> for TimeDisplay {
     fn view(&self) -> Html<Self> {
-        let now = self.now.unwrap_or_else(time::now);
-
         let formatted = self.time.format("%l:%M %p");
 
         html! {
             <span class="TimeDisplay">
             { format!("{}", formatted)}
+            { self.date_diff_tooltip() }
             </span>
+        }
+    }
+}
+
+impl TimeDisplay {
+    fn date_diff_tooltip(&self) -> Html<Self> {
+        let now = self.now.unwrap_or_else(time::now);
+        let today = now.date();
+        let date = self.time.date();
+
+        if today == date {
+            return html! {};
+        }
+
+        let date_diff = (date - today).num_days();
+        let sign = if date_diff > 0 { '+' } else { '-' };
+
+        html! {
+            <sup class="TimeDisplay-dateDiff">{ format!("{}{}", sign, date_diff) }</sup>
         }
     }
 }
