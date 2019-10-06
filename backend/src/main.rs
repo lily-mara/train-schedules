@@ -1,11 +1,13 @@
 use crate::error::{Error, Result};
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{client::Client, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use chrono::{prelude::*, Weekday};
+use futures::{future, Future};
 use serde::Deserialize;
 use std::{collections::HashMap, env};
 use train_schedules_common::*;
 
 mod error;
+mod types;
 
 #[derive(Deserialize, Debug, Clone)]
 struct UpcomingTripsQuery {
@@ -15,6 +17,7 @@ struct UpcomingTripsQuery {
 
 struct AppState {
     connection: sqlite::Connection,
+    client: Client,
     api_key: String,
 }
 
@@ -29,10 +32,11 @@ fn main() {
             .data(AppState {
                 connection: sqlite::Connection::open(&db_path).unwrap(),
                 api_key: api_key.clone(),
+                client: Client::new(),
             })
             .route("/", web::get().to(index))
             .route("/stations", web::get().to(stations))
-            .route("/upcoming-trips", web::get().to(upcoming_trips))
+            .route("/upcoming-trips", web::get().to_async(upcoming_trips))
     })
     .bind("0.0.0.0:8088")
     .unwrap()
@@ -174,10 +178,13 @@ fn get_upcoming_trips(
                 continue;
             }
 
-            trips
-                .entry(trip_id)
-                .or_insert_with(HashMap::new)
-                .insert(station_name, Departure { departure, arrival });
+            trips.entry(trip_id).or_insert_with(HashMap::new).insert(
+                station_name,
+                Departure {
+                    departure: Time::new(departure),
+                    arrival: Time::new(departure),
+                },
+            );
         }
         stmt.reset()?;
     }
@@ -190,24 +197,13 @@ fn get_upcoming_trips(
 
             Some(Trip {
                 trip_id,
-                start: Times {
-                    scheduled: start,
-                    estimated: None,
-                },
-                end: Times {
-                    scheduled: end,
-                    estimated: None,
-                },
+                start,
+                end,
             })
         })
         .collect();
 
-    trips.sort_by(|a, b| {
-        a.start
-            .scheduled
-            .departure
-            .cmp(&b.start.scheduled.departure)
-    });
+    trips.sort_by(|a, b| a.start.departure.cmp(&b.start.departure));
 
     Ok(TripList {
         trips,
@@ -234,8 +230,101 @@ fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
     Ok(time.with_timezone(&time.offset()))
 }
 
-fn live_status() {
-    // https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json&stopCode={stop_code}
+fn to_local_time(time: DateTime<FixedOffset>) -> DateTime<FixedOffset> {
+    time.with_timezone(&Local::now().offset())
+}
+
+fn get_station_estimated_stuff(
+    client: Client,
+    api_key: String,
+    station_id: i64,
+) -> impl Future<
+    Item = (
+        Client,
+        HashMap<i64, (DateTime<FixedOffset>, DateTime<FixedOffset>)>,
+    ),
+    Error = Error,
+> {
+    let url = format!(
+        "https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json&stopCode={stop_code}",
+        api_key=api_key,
+        stop_code=station_id
+    );
+
+    let resp = client
+        .get(&url)
+        .send()
+        .map_err(Error::from)
+        .and_then(|mut response| response.body().map_err(Error::from))
+        .and_then(|body| match serde_json::from_slice(&body[3..]) {
+            Ok(data) => future::ok(data),
+            Err(e) => future::err(e.into()),
+        })
+        .map(|resp: types::ApiResponse| {
+            let mut trips = HashMap::new();
+
+            for visit in resp
+                .ServiceDelivery
+                .StopMonitoringDelivery
+                .MonitoredStopVisit
+            {
+                if let Ok(trip_id) = visit.MonitoredVehicleJourney.VehicleRef.parse() {
+                    trips.insert(
+                        trip_id,
+                        (
+                            to_local_time(
+                                visit
+                                    .MonitoredVehicleJourney
+                                    .MonitoredCall
+                                    .ExpectedDepartureTime,
+                            ),
+                            to_local_time(
+                                visit
+                                    .MonitoredVehicleJourney
+                                    .MonitoredCall
+                                    .ExpectedArrivalTime,
+                            ),
+                        ),
+                    );
+                }
+            }
+
+            trips
+        });
+
+    resp.map(|trips| (client, trips))
+}
+
+fn add_live_status(
+    client: Client,
+    api_key: &str,
+    mut trips: TripList,
+) -> impl Future<Item = TripList, Error = Error> {
+    let key = api_key.to_owned();
+
+    let start = trips.start.station_id;
+    let end = trips.end.station_id;
+
+    get_station_estimated_stuff(client, api_key.into(), start)
+        .and_then(move |(client, start_data)| {
+            get_station_estimated_stuff(client, key, end)
+                .map(move |(_, end_data)| (start_data, end_data))
+        })
+        .map(move |(start_data, end_data)| {
+            for trip in &mut trips.trips {
+                if let Some((departure, arrival)) = start_data.get(&trip.trip_id) {
+                    trip.start.departure.estimated = Some(*departure);
+                    trip.start.arrival.estimated = Some(*arrival);
+                }
+
+                if let Some((departure, arrival)) = end_data.get(&trip.trip_id) {
+                    trip.end.departure.estimated = Some(*departure);
+                    trip.end.arrival.estimated = Some(*arrival);
+                }
+            }
+
+            trips
+        })
 }
 
 fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>> {
@@ -277,19 +366,20 @@ fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>
 fn upcoming_trips(
     query: web::Query<UpcomingTripsQuery>,
     data: web::Data<AppState>,
-) -> Result<impl Responder> {
-    let trips = get_upcoming_trips(&data.connection, query.start, query.end)?;
+) -> impl Future<Item = HttpResponse, Error = Error> {
+    let trips = match get_upcoming_trips(&data.connection, query.start, query.end) {
+        Ok(trips) => trips,
+        Err(e) => return future::Either::A(future::err(e)),
+    };
 
-    Ok(HttpResponse::Ok().json(trips))
+    future::Either::B(
+        add_live_status(data.client.clone(), &data.api_key, trips)
+            .map(|trips| HttpResponse::Ok().json(trips)),
+    )
 }
 
 fn stations(_req: HttpRequest, data: web::Data<AppState>) -> Result<impl Responder> {
     Ok(HttpResponse::Ok().json(load_all_stations(&data.connection)?))
-}
-
-pub fn current_minute() -> i64 {
-    let now = chrono::Local::now();
-    (now.hour() * 60 + now.minute()) as i64
 }
 
 fn bind_placeholders(num: usize) -> String {

@@ -28,7 +28,7 @@ impl Component for TripDisplay {
 impl Renderable<TripDisplay> for TripDisplay {
     fn view(&self) -> Html<Self> {
         let now = time::now();
-        let time_to_departure = (self.trip.start.scheduled.departure - now).num_minutes();
+        let time_to_departure = (*self.trip.start.departure - now).num_minutes();
 
         let service_class = match self.trip.trip_id / 100 {
             1 | 4 => "local",
@@ -37,16 +37,16 @@ impl Renderable<TripDisplay> for TripDisplay {
             _ => "",
         };
 
-        let transit_time = (self.trip.end.scheduled.departure - self.trip.start.scheduled.arrival)
+        let transit_time = (*self.trip.end.departure - *self.trip.start.arrival)
             .num_minutes()
             .abs();
 
         html! {
-            <div class="TripDisplay">
-                <div class=format!("{} TrainID", service_class)>{ self.trip.trip_id }</div>
+            <div class=classes!("TripDisplay")>
+                <div class=classes!("TrainID", service_class)>{ self.trip.trip_id }</div>
                 <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
-                <div class="DepartTime">{"Departing "}<TimeDisplay time=self.trip.start.scheduled.departure /></div>
-                   <div class="DepartTime">{"Arriving "}<TimeDisplay time=self.trip.end.scheduled.arrival /></div>
+                <div class="DepartTime">{"Departing "}<TimeDisplay time=self.trip.start.departure /></div>
+                <div class="ArrivalTime">{"Arriving "}<TimeDisplay time=self.trip.end.arrival /></div>
                 <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
             </div>
         }

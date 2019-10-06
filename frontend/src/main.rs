@@ -2,6 +2,8 @@
 
 use yew::prelude::*;
 
+#[macro_use]
+mod classes;
 mod router;
 mod time;
 mod time_display;

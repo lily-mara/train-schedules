@@ -1,16 +1,17 @@
 use crate::time;
 use chrono::prelude::*;
+use train_schedules_common::*;
 use yew::prelude::*;
 
 pub struct TimeDisplay {
-    time: DateTime<FixedOffset>,
+    time: Time,
     now: Option<DateTime<FixedOffset>>,
 }
 
 #[derive(Properties)]
 pub struct Properties {
     #[props(required)]
-    pub time: DateTime<FixedOffset>,
+    pub time: Time,
 
     pub now: Option<DateTime<FixedOffset>>,
 }
@@ -18,7 +19,10 @@ pub struct Properties {
 impl Default for Properties {
     fn default() -> Self {
         Self {
-            time: time::now(),
+            time: Time {
+                scheduled: time::now(),
+                estimated: None,
+            },
             now: None,
         }
     }
@@ -45,8 +49,8 @@ impl Renderable<Self> for TimeDisplay {
         let formatted = self.time.format("%l:%M %p");
 
         html! {
-            <span class="TimeDisplay">
-            { format!("{}", formatted)}
+            <span class=classes!("TimeDisplay", "TimeDisplay--realtime" => self.time.is_live())>
+            { format!("{}", formatted) }
             { self.date_diff_tooltip() }
             </span>
         }
