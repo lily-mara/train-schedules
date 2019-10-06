@@ -37,13 +37,17 @@ impl Renderable<TripDisplay> for TripDisplay {
             _ => "",
         };
 
+        let transit_time = (self.trip.end.scheduled.departure - self.trip.start.scheduled.arrival)
+            .num_minutes()
+            .abs();
+
         html! {
             <div class="TripDisplay">
                 <div class=format!("{} TrainID", service_class)>{ self.trip.trip_id }</div>
                 <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
                 <div class="DepartTime">{"Departing "}<TimeDisplay time=self.trip.start.scheduled.departure /></div>
-                   <div class="DepartTime">{"Departing "}<TimeDisplay time=self.trip.end.scheduled.arrival /></div>
-                <div class="TransitTime">{ format!("{} min. in transit", (self.trip.start.scheduled.departure - self.trip.end.scheduled.arrival).num_minutes()) }</div>
+                   <div class="DepartTime">{"Arriving "}<TimeDisplay time=self.trip.end.scheduled.arrival /></div>
+                <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
             </div>
         }
     }
