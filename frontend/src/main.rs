@@ -1,5 +1,6 @@
 #![recursion_limit = "2048"]
 
+use stdweb::web::{self, IParentNode};
 use yew::prelude::*;
 
 #[macro_use]
@@ -12,6 +13,11 @@ mod trip_list;
 
 fn main() {
     yew::initialize();
-    App::<router::Routes>::new().mount_to_body();
+    App::<router::Routes>::new().mount(
+        web::document()
+            .query_selector("#app-container")
+            .unwrap()
+            .unwrap(),
+    );
     yew::run_loop();
 }

@@ -1,3 +1,9 @@
+#app-container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
 .TripDisplay {
   display: flex;
   justify-content: space-between;
