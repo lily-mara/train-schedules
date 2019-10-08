@@ -48,8 +48,14 @@ impl Renderable<Self> for TimeDisplay {
     fn view(&self) -> Html<Self> {
         let formatted = self.time.format("%l:%M %p");
 
+        let title = if self.time.is_live() {
+            format!("Scheduled for {}", self.time.scheduled.format("%l:%M %p"))
+        } else {
+            String::from("")
+        };
+
         html! {
-            <span class=classes!("TimeDisplay", "TimeDisplay--realtime" => self.time.is_live())>
+            <span class=classes!("TimeDisplay", "TimeDisplay--realtime" => self.time.is_live()) title=title>
             { format!("{}", formatted) }
             { self.date_diff_tooltip() }
             </span>
