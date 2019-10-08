@@ -25,7 +25,7 @@ pub struct MonitoredStopVisit {
 
 #[derive(Deserialize)]
 pub struct MonitoredVehicleJourney {
-    pub VehicleRef: String,
+    pub VehicleRef: Option<String>,
     pub MonitoredCall: MonitoredCall,
 }
 

@@ -268,24 +268,26 @@ fn get_station_estimated_stuff(
                 .StopMonitoringDelivery
                 .MonitoredStopVisit
             {
-                if let Ok(trip_id) = visit.MonitoredVehicleJourney.VehicleRef.parse() {
-                    trips.insert(
-                        trip_id,
-                        (
-                            to_local_time(
-                                visit
-                                    .MonitoredVehicleJourney
-                                    .MonitoredCall
-                                    .ExpectedDepartureTime,
+                if let Some(vehicle_ref) = visit.MonitoredVehicleJourney.VehicleRef {
+                    if let Ok(trip_id) = vehicle_ref.parse() {
+                        trips.insert(
+                            trip_id,
+                            (
+                                to_local_time(
+                                    visit
+                                        .MonitoredVehicleJourney
+                                        .MonitoredCall
+                                        .ExpectedDepartureTime,
+                                ),
+                                to_local_time(
+                                    visit
+                                        .MonitoredVehicleJourney
+                                        .MonitoredCall
+                                        .ExpectedArrivalTime,
+                                ),
                             ),
-                            to_local_time(
-                                visit
-                                    .MonitoredVehicleJourney
-                                    .MonitoredCall
-                                    .ExpectedArrivalTime,
-                            ),
-                        ),
-                    );
+                        );
+                    }
                 }
             }
 
@@ -304,6 +306,8 @@ fn add_live_status(
 
     let start = trips.start.station_id;
     let end = trips.end.station_id;
+
+    let trips_inner = trips.clone();
 
     get_station_estimated_stuff(client, api_key.into(), start)
         .and_then(move |(client, start_data)| {
@@ -324,6 +328,11 @@ fn add_live_status(
             }
 
             trips
+        })
+        .or_else(|e| {
+            eprintln!("Error fetching realtime data: {}", e);
+
+            future::ok(trips_inner)
         })
 }
 
