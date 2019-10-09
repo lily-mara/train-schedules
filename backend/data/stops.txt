@@ -1,4 +1,6 @@
 stop_id,stop_code,platform_code,stop_name,stop_desc,stop_lat,stop_lon,zone_id,stop_url,location_type,parent_station,stop_timezone,position,direction,wheelchair_boarding
+2537740,2537740,,Stanford Caltrain,,37.438516,-122.156443,2277,,0,,America/Los_Angeles,,,0
+2537744,2537744,,Stanford Caltrain,,37.438445467639,-122.156501990963,2277,,0,,America/Los_Angeles,,,0
 70011,70011,,San Francisco Caltrain,,37.77639,-122.394992,2275,,0,,America/Los_Angeles,,,1
 70012,70012,,San Francisco Caltrain,,37.776348,-122.394935,2275,,0,,America/Los_Angeles,,,1
 70021,70021,,22nd Street Caltrain,,37.757599,-122.39188,2275,,0,,America/Los_Angeles,,,2
