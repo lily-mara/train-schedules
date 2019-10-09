@@ -83,6 +83,12 @@ impl Component for Model {
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        if props.start == self.trip_list.start.station_id
+            && props.end == self.trip_list.end.station_id
+        {
+            return false;
+        }
+
         self.fetch(&props);
         false
     }

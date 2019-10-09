@@ -12,10 +12,10 @@ pub struct TripList {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Station {
     pub name: String,
-    pub station_id: i64,
+    pub station_id: i32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Departure {
     pub departure: Time,
     pub arrival: Time,
@@ -27,9 +27,9 @@ pub struct Time {
     pub estimated: Option<DateTime<FixedOffset>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Trip {
-    pub trip_id: i64,
+    pub trip_id: i32,
     pub start: Departure,
     pub end: Departure,
 }

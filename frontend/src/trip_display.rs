@@ -1,4 +1,4 @@
-use crate::{time, time_display::TimeDisplay};
+use crate::{time, time_display::TimeDisplay, util};
 use train_schedules_common::*;
 use yew::prelude::*;
 
@@ -21,8 +21,7 @@ impl Component for TripDisplay {
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        self.trip = props.trip;
-        true
+        util::state_changed(&mut self.trip, props.trip)
     }
 
     fn update(&mut self, _: ()) -> ShouldRender {

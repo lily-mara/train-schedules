@@ -10,6 +10,7 @@ mod time;
 mod time_display;
 mod trip_display;
 mod trip_list;
+mod util;
 
 fn main() {
     yew::initialize();

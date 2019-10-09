@@ -99,7 +99,7 @@ fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<Stat
     match stmt.next()? {
         sqlite::State::Row => Ok(Station {
             name: stmt.read(0)?,
-            station_id: stmt.read(1)?,
+            station_id: stmt.read::<i64>(1)? as i32,
         }),
         sqlite::State::Done => Err(Error::NoSuchStation(station_id)),
     }
@@ -119,7 +119,7 @@ fn load_all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
     while let sqlite::State::Row = stmt.next()? {
         stations.push(Station {
             name: stmt.read(0)?,
-            station_id: stmt.read(1)?,
+            station_id: stmt.read::<i64>(1)? as i32,
         });
     }
 
@@ -176,7 +176,7 @@ fn get_upcoming_trips(
                 continue;
             }
 
-            let trip_id = stmt.read(3)?;
+            let trip_id = stmt.read::<i64>(3)? as i32;
 
             trips.entry(trip_id).or_insert_with(HashMap::new).insert(
                 station_name,
@@ -241,11 +241,11 @@ fn to_local_time(time: DateTime<FixedOffset>) -> DateTime<FixedOffset> {
 fn get_station_estimated_stuff(
     client: Client,
     api_key: String,
-    station_id: i64,
+    station_id: i32,
 ) -> impl Future<
     Item = (
         Client,
-        HashMap<i64, (DateTime<FixedOffset>, DateTime<FixedOffset>)>,
+        HashMap<i32, (DateTime<FixedOffset>, DateTime<FixedOffset>)>,
     ),
     Error = Error,
 > {

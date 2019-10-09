@@ -1,4 +1,4 @@
-use crate::time;
+use crate::{time, util};
 use chrono::prelude::*;
 use train_schedules_common::*;
 use yew::prelude::*;
@@ -40,19 +40,8 @@ impl Component for TimeDisplay {
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        let mut changed = false;
-
-        if self.time != props.time {
-            self.time = props.time;
-            changed = true;
-        }
-
-        if self.now != props.now {
-            self.now = props.now;
-            changed = true;
-        }
-
-        changed
+        util::state_changed(&mut self.time, props.time)
+            || util::state_changed(&mut self.now, props.now)
     }
 
     fn update(&mut self, _: ()) -> ShouldRender {
