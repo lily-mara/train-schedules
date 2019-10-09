@@ -20,6 +20,11 @@ impl Component for TripDisplay {
         Self { trip: props.trip }
     }
 
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        self.trip = props.trip;
+        true
+    }
+
     fn update(&mut self, _: ()) -> ShouldRender {
         false
     }

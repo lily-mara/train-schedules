@@ -39,6 +39,22 @@ impl Component for TimeDisplay {
         }
     }
 
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        let mut changed = false;
+
+        if self.time != props.time {
+            self.time = props.time;
+            changed = true;
+        }
+
+        if self.now != props.now {
+            self.now = props.now;
+            changed = true;
+        }
+
+        changed
+    }
+
     fn update(&mut self, _: ()) -> ShouldRender {
         false
     }

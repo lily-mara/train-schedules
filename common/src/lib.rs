@@ -21,7 +21,7 @@ pub struct Departure {
     pub arrival: Time,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct Time {
     pub scheduled: DateTime<FixedOffset>,
     pub estimated: Option<DateTime<FixedOffset>>,
