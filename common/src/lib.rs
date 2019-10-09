@@ -13,22 +13,6 @@ pub struct TripList {
 pub struct Station {
     pub name: String,
     pub station_id: i64,
-    pub direction: Direction,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Direction {
-    #[serde(rename = "north")]
-    North,
-
-    #[serde(rename = "south")]
-    South,
-}
-
-impl Default for Direction {
-    fn default() -> Direction {
-        Direction::North
-    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -48,16 +32,6 @@ pub struct Trip {
     pub trip_id: i64,
     pub start: Departure,
     pub end: Departure,
-}
-
-impl From<i64> for Direction {
-    fn from(f: i64) -> Direction {
-        match f {
-            0 => Direction::North,
-            1 => Direction::South,
-            _ => panic!("{} is not a valid direction", f),
-        }
-    }
 }
 
 impl Time {

@@ -55,17 +55,24 @@ fn get_trip_ids_that_hit_stations(
     connection: &sqlite::Connection,
     start_station: i64,
     end_station: i64,
+    service_ids: &[String],
 ) -> Result<Vec<i64>> {
     let mut statement = connection.prepare(
-        "
-        select trip_id from stop_times where stop_id=?
+        &format!("
+        select trip_id from stop_times join stops on stops.stop_id =stop_times.stop_id where station_id=?
         intersect
-        select trip_id from stop_times where stop_id=?
-        ",
+        select trip_id from stop_times join stops on stops.stop_id =stop_times.stop_id where station_id=?
+        intersect
+        select trip_id from trips where service_id in ({})
+        ",         bind_placeholders(service_ids.len())),
     )?;
 
     statement.bind(1, start_station)?;
     statement.bind(2, end_station)?;
+
+    for (idx, i) in service_ids.iter().enumerate() {
+        statement.bind(idx + 3, &sqlite::Value::String(i.clone()))?;
+    }
 
     let mut trip_ids = Vec::new();
 
@@ -79,11 +86,11 @@ fn get_trip_ids_that_hit_stations(
 fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<Station> {
     let mut stmt = connection.prepare(
         "
-            select distinct stop_name, stops.stop_id, direction_id
+            select distinct stop_name, station_id
             from trips
             join stop_times on stop_times.trip_id = trips.trip_id
             join stops on stops.stop_id = stop_times.stop_id
-            where stops.stop_id=?;
+            where station_id=?;
         ",
     )?;
 
@@ -93,7 +100,6 @@ fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<Stat
         sqlite::State::Row => Ok(Station {
             name: stmt.read(0)?,
             station_id: stmt.read(1)?,
-            direction: stmt.read::<i64>(2)?.into(),
         }),
         sqlite::State::Done => Err(Error::NoSuchStation(station_id)),
     }
@@ -102,13 +108,9 @@ fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<Stat
 fn load_all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
     let mut stmt = connection.prepare(
         "
-
-            select distinct stop_name, stops.stop_id, direction_id
-            from trips
-            join stop_times on stop_times.trip_id = trips.trip_id
-            join stops on stops.stop_id = stop_times.stop_id
+            select distinct stop_name, station_id
+            from stops
             order by stops.stop_id asc
-
         ",
     )?;
 
@@ -118,7 +120,6 @@ fn load_all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
         stations.push(Station {
             name: stmt.read(0)?,
             station_id: stmt.read(1)?,
-            direction: stmt.read::<i64>(2)?.into(),
         });
     }
 
@@ -130,20 +131,22 @@ fn get_upcoming_trips(
     start_station_id: i64,
     end_station_id: i64,
 ) -> Result<TripList> {
-    let trip_ids = get_trip_ids_that_hit_stations(connection, start_station_id, end_station_id)?;
-
     let service_ids = get_active_service_ids(connection)?;
 
-    let mut stmt = connection.prepare(format!(
+    let trip_ids =
+        get_trip_ids_that_hit_stations(connection, start_station_id, end_station_id, &service_ids)?;
+
+    let mut stmt = connection.prepare(
         "
-        select departure_time, arrival_time, stop_times.trip_id, stop_id
+        select distinct station_id, departure_time, arrival_time, stop_times.trip_id
         from stop_times
         join trips on trips.trip_id=stop_times.trip_id
-        where (stop_id=? or stop_id=?) and stop_times.trip_id=? and service_id in ({})
-        order by stop_times.trip_id
+        join stops on stop_times.stop_id = stops.stop_id
+        where
+            stop_times.trip_id = ? and
+            station_id in (?, ?)
         ",
-        bind_placeholders(service_ids.len()),
-    ))?;
+    )?;
 
     let start_station = load_station(connection, start_station_id)?;
     let end_station = load_station(connection, end_station_id)?;
@@ -152,31 +155,28 @@ fn get_upcoming_trips(
     let mut trips = HashMap::new();
 
     for id in trip_ids {
-        stmt.bind(1, start_station_id)?;
-        stmt.bind(2, end_station_id)?;
-        stmt.bind(3, id)?;
-        for (idx, i) in service_ids.iter().enumerate() {
-            stmt.bind(idx + 4, &sqlite::Value::String(i.clone()))?;
-        }
+        stmt.bind(1, id)?;
+        stmt.bind(2, start_station_id)?;
+        stmt.bind(3, end_station_id)?;
 
         while let sqlite::State::Row = stmt.next()? {
-            let station_name = match stmt.read::<i64>(3)? {
+            let station_name = match stmt.read::<i64>(0)? {
                 x if x == start_station_id => "start",
                 x if x == end_station_id => "end",
-                x => panic!("Got unexpected station ID: {}", x),
+                _ => continue,
             };
 
-            let trip_id = stmt.read(2)?;
-
-            let departure_str: String = stmt.read(0)?;
+            let departure_str: String = stmt.read(1)?;
             let departure = parse_time(&departure_str)?;
 
-            let arrival_str: String = stmt.read(1)?;
+            let arrival_str: String = stmt.read(2)?;
             let arrival = parse_time(&arrival_str)?;
 
             if departure < now || arrival < now {
                 continue;
             }
+
+            let trip_id = stmt.read(3)?;
 
             trips.entry(trip_id).or_insert_with(HashMap::new).insert(
                 station_name,
@@ -194,6 +194,10 @@ fn get_upcoming_trips(
         .filter_map(|(trip_id, mut stations)| {
             let start = stations.remove("start")?;
             let end = stations.remove("end")?;
+
+            if *start.arrival > *end.departure {
+                return None;
+            }
 
             Some(Trip {
                 trip_id,

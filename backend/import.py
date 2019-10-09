@@ -7,3 +7,7 @@ print('.mode csv')
 
 for file in glob('data/*.txt'):
     print(f'.import {file} {os.path.splitext(os.path.basename(file))[0]}')
+
+print("""
+alter table stops add column station_id int;
+""")
