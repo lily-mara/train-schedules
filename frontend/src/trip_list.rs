@@ -1,18 +1,20 @@
 use crate::trip_display::TripDisplay;
 use failure::Error;
 use log::log;
-use serde::de;
+use serde::{de, Serialize};
 use train_schedules_common::*;
 use yew::format::Nothing;
 use yew::prelude::*;
 use yew::services::fetch::*;
+use yew_router::components::RouterLink;
 
 pub struct Model {
     trip_list: TripList,
     task: Option<FetchTask>,
+    link: ComponentLink<Self>,
 }
 
-#[derive(Properties)]
+#[derive(Properties, Serialize)]
 pub struct TripListProps {
     #[props(required)]
     pub start: i32,
@@ -42,11 +44,8 @@ fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, 
     Ok(body)
 }
 
-impl Component for Model {
-    type Message = Message;
-    type Properties = TripListProps;
-
-    fn create(props: TripListProps, mut link: ComponentLink<Self>) -> Self {
+impl Model {
+    fn fetch(&mut self, props: &TripListProps) {
         let task = FetchService::new().fetch(
             Request::get(format!(
                 "/api/upcoming-trips?start={}&end={}",
@@ -54,17 +53,38 @@ impl Component for Model {
             ))
             .body(Nothing)
             .unwrap(),
-            link.send_back(|response: Response<Result<String, Error>>| {
-                match process_trips(response) {
-                    Ok(trips) => Message::FetchFinished(trips),
-                    Err(e) => Message::FetchError(e),
-                }
-            }),
+            self.link
+                .send_back(|response: Response<Result<String, Error>>| {
+                    match process_trips(response) {
+                        Ok(trips) => Message::FetchFinished(trips),
+                        Err(e) => Message::FetchError(e),
+                    }
+                }),
         );
-        Self {
+
+        self.task = Some(task);
+    }
+}
+
+impl Component for Model {
+    type Message = Message;
+    type Properties = TripListProps;
+
+    fn create(props: TripListProps, link: ComponentLink<Self>) -> Self {
+        let mut model = Self {
             trip_list: Default::default(),
-            task: Some(task),
-        }
+            link,
+            task: None,
+        };
+
+        model.fetch(&props);
+
+        model
+    }
+
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        self.fetch(&props);
+        false
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
@@ -99,10 +119,16 @@ impl Renderable<Model> for Model {
             };
         }
 
+        let flipped_url = format!(
+            "/c/{}/{}",
+            self.trip_list.end.station_id, self.trip_list.start.station_id
+        );
+
         html! {
             <div class="TripList">
                 <h1>{ "Upcoming trains" }</h1>
-                <h2>{ format!("{} → {}", self.trip_list.start.name, self.trip_list.end.name) }</h2>
+                <h2>{ format!("{} → {}", self.trip_list.start.name, self.trip_list.end.name) } </h2>
+                <h3><RouterLink classes="DirectionFlip" text="Change Direction" link=flipped_url /></h3>
                 { for self.trip_list.trips.iter().map(Self::view_trip) }
             </div>
         }
