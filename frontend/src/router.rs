@@ -1,4 +1,4 @@
-use crate::trip_list;
+use crate::{station_list, trip_list};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
@@ -21,16 +21,10 @@ impl Renderable<Self> for Routes {
     fn view(&self) -> Html<Self> {
         html! {
             <Router>
-                <Route
-                    matcher=route!("/c/{start}/{end}")
-                    render=Render::new(|matches: &Captures| {
-                        let start: i32 = matches["start"].parse().ok()?;
-                        let end: i32 = matches["end"].parse().ok()?;
-
-                        Some(html! {
-                            <trip_list::Model start=start end=end />
-                        })
-                    }) />
+                <Route matcher=route!("/c/{start}/{end}") render=component::<trip_list::Model>() />
+                <Route matcher=route!("/") render=component::<station_list::StationList>() />
+                <Route matcher=route!("/c/") render=component::<station_list::StationList>() />
+                <Route matcher=route!("/c/{start_station_id}") render=component::<station_list::StationList>() />
             </Router>
         }
     }

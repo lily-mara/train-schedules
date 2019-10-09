@@ -6,6 +6,7 @@ use yew::prelude::*;
 #[macro_use]
 mod classes;
 mod router;
+mod station_list;
 mod time;
 mod time_display;
 mod trip_display;

@@ -1,12 +1,10 @@
 use crate::trip_display::TripDisplay;
 use failure::Error;
 use log::log;
-use serde::{de, Serialize};
+use serde::Serialize;
 use train_schedules_common::*;
-use yew::format::Nothing;
-use yew::prelude::*;
-use yew::services::fetch::*;
-use yew_router::components::RouterLink;
+use yew::{format::Nothing, prelude::*, services::fetch::*};
+use yew_router::{components::RouterLink, prelude::*};
 
 pub struct Model {
     trip_list: TripList,
@@ -14,7 +12,7 @@ pub struct Model {
     link: ComponentLink<Self>,
 }
 
-#[derive(Properties, Serialize)]
+#[derive(Properties, Serialize, FromCaptures)]
 pub struct TripListProps {
     #[props(required)]
     pub start: i32,
@@ -28,20 +26,11 @@ pub enum Message {
     FetchError(Error),
 }
 
-fn deserialize<T>(req: Response<Result<String, Error>>) -> Result<Response<T>, Error>
-where
-    for<'de> T: de::Deserialize<'de>,
-{
-    let (parts, body) = req.into_parts();
-    let body = serde_json::from_str(&body?)?;
-    Ok(Response::from_parts(parts, body))
-}
-
 fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, Error> {
-    let response = deserialize(response)?;
     let (_, body) = response.into_parts();
+    let list = serde_json::from_str(&body?)?;
 
-    Ok(body)
+    Ok(list)
 }
 
 impl Model {
