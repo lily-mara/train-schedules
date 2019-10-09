@@ -16,8 +16,11 @@ body {
 }
 
 @media only screen and (max-width: 500px) {
-  body {
-    background-color: lightblue;
+  .TripDisplay {
+    flex-flow: row wrap;
+    flex-direction: column;
+    margin-bottom: 10px;
+    padding: 5px;
   }
 }
 
@@ -25,7 +28,6 @@ body {
   border-radius: 5px;
   padding: 5px;
   float: none;
-  width: auto;
   white-space: nowrap;
 }
 
