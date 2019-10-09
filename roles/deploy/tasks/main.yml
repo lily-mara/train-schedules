@@ -39,7 +39,7 @@
 
 - name: "restart backend server"
   systemd:
-    daemon_reload: systemd_file.changed
+    daemon_reload: "systemd_file.changed | bool"
     state: restarted
     name: train-backend
     enabled: yes
@@ -48,12 +48,11 @@
 
 - name: "copy frontend files"
   copy:
-    src: "{{ playbook_dir }}/{{ item }}"
+    src: "{{ item }}"
     dest: "/var/www/html/"
     mode: 0644
-  with_items:
-    - "target/deploy/train-frontend.wasm"
-    - "target/deploy/train-frontend.js"
-    - "frontend/static/index.html"
-    - "frontend/static/main.css"
+  with_fileglob:
+    - "{{ playbook_dir }}/target/deploy/train-frontend.wasm"
+    - "{{ playbook_dir }}/target/deploy/train-frontend.js"
+    - "{{ playbook_dir }}/frontend/static/*"
   become: true
