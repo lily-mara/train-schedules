@@ -9,6 +9,7 @@ use yew_router::{components::RouterLink, prelude::*};
 
 pub struct StationList {
     start_station_id: Option<i32>,
+    start_station_name: Option<String>,
     task: Option<FetchTask>,
     stations: Vec<Station>,
 }
@@ -64,6 +65,18 @@ fn send_back(response: Response<Result<String, Error>>) -> Result<Vec<Station>, 
     Ok(list)
 }
 
+impl StationList {
+    fn update_station_name(&mut self) {
+        if let Some(station_id) = self.start_station_id {
+            for station in &self.stations {
+                if station.station_id == station_id {
+                    self.start_station_name = Some(station.name.clone())
+                }
+            }
+        }
+    }
+}
+
 impl Component for StationList {
     type Message = Message;
     type Properties = Properties;
@@ -81,13 +94,20 @@ impl Component for StationList {
 
         Self {
             start_station_id: props.start_station_id,
+            start_station_name: None,
             task: Some(task),
             stations: Vec::new(),
         }
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        util::state_changed(&mut self.start_station_id, props.start_station_id)
+        if util::state_changed(&mut self.start_station_id, props.start_station_id) {
+            self.update_station_name();
+
+            true
+        } else {
+            false
+        }
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
@@ -95,6 +115,9 @@ impl Component for StationList {
         match msg {
             Message::FetchFinished(stations) => {
                 self.stations = stations;
+
+                self.update_station_name();
+
                 true
             }
             Message::FetchError(e) => {
@@ -113,9 +136,17 @@ impl Renderable<Self> for StationList {
             "Choose a starting station"
         };
 
+        let start_station = match &self.start_station_name {
+            Some(name) => html! {
+                <h2>{ format!("Leaving from {}", name) }</h2>
+            },
+            None => html! {},
+        };
+
         html! {
             <div class="StationList">
                 <h1>{ title }</h1>
+                { start_station }
                 <ul>
                 { for self.stations.iter().map(|station| view_station(station, &self.start_station_id)) }
                 </ul>
