@@ -2,13 +2,19 @@ use crate::trip_display::TripDisplay;
 use failure::Error;
 use log::log;
 use serde::Serialize;
+use std::time::Duration;
 use train_schedules_common::*;
-use yew::{format::Nothing, prelude::*, services::fetch::*};
+use yew::{
+    format::Nothing,
+    prelude::*,
+    services::{fetch::*, interval::*},
+};
 use yew_router::{components::RouterLink, prelude::*};
 
 pub struct Model {
     trip_list: TripList,
-    task: Option<FetchTask>,
+    fetch_task: Option<FetchTask>,
+    interval_task: Option<IntervalTask>,
     link: ComponentLink<Self>,
 }
 
@@ -24,6 +30,7 @@ pub struct TripListProps {
 pub enum Message {
     FetchFinished(TripList),
     FetchError(Error),
+    ReFetchTimeout,
 }
 
 fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, Error> {
@@ -35,7 +42,7 @@ fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, 
 
 impl Model {
     fn fetch(&mut self, props: &TripListProps) {
-        let task = FetchService::new().fetch(
+        let fetch_task = FetchService::new().fetch(
             Request::get(format!(
                 "/api/upcoming-trips?start={}&end={}",
                 props.start, props.end
@@ -51,7 +58,7 @@ impl Model {
                 }),
         );
 
-        self.task = Some(task);
+        self.fetch_task = Some(fetch_task);
     }
 }
 
@@ -59,11 +66,17 @@ impl Component for Model {
     type Message = Message;
     type Properties = TripListProps;
 
-    fn create(props: TripListProps, link: ComponentLink<Self>) -> Self {
+    fn create(props: TripListProps, mut link: ComponentLink<Self>) -> Self {
+        let interval_task = IntervalService::new().spawn(
+            Duration::from_secs(60),
+            link.send_back(|_| Message::ReFetchTimeout),
+        );
+
         let mut model = Self {
             trip_list: Default::default(),
             link,
-            task: None,
+            fetch_task: None,
+            interval_task: Some(interval_task),
         };
 
         model.fetch(&props);
@@ -86,12 +99,21 @@ impl Component for Model {
         match msg {
             Message::FetchFinished(trip_list) => {
                 self.trip_list = trip_list;
-                self.task = None;
+                self.fetch_task = None;
                 true
             }
             Message::FetchError(e) => {
                 log!(format!("{}", e));
-                self.task = None;
+                self.fetch_task = None;
+                false
+            }
+            Message::ReFetchTimeout => {
+                if self.fetch_task.is_none() {
+                    self.fetch(&TripListProps {
+                        start: self.trip_list.start.station_id,
+                        end: self.trip_list.end.station_id,
+                    });
+                }
                 false
             }
         }
