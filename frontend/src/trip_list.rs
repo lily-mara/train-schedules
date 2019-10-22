@@ -14,7 +14,7 @@ use yew_router::{components::RouterLink, prelude::*};
 pub struct Model {
     trip_list: TripList,
     fetch_task: Option<FetchTask>,
-    interval_task: Option<IntervalTask>,
+    _interval_task: IntervalTask,
     link: ComponentLink<Self>,
 }
 
@@ -30,7 +30,7 @@ pub struct TripListProps {
 pub enum Message {
     FetchFinished(TripList),
     FetchError(Error),
-    ReFetchTimeout,
+    RefetchData,
 }
 
 fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, Error> {
@@ -69,14 +69,14 @@ impl Component for Model {
     fn create(props: TripListProps, mut link: ComponentLink<Self>) -> Self {
         let interval_task = IntervalService::new().spawn(
             Duration::from_secs(60),
-            link.send_back(|_| Message::ReFetchTimeout),
+            link.send_back(|_| Message::RefetchData),
         );
 
         let mut model = Self {
             trip_list: Default::default(),
             link,
             fetch_task: None,
-            interval_task: Some(interval_task),
+            _interval_task: interval_task,
         };
 
         model.fetch(&props);
@@ -107,7 +107,7 @@ impl Component for Model {
                 self.fetch_task = None;
                 false
             }
-            Message::ReFetchTimeout => {
+            Message::RefetchData => {
                 if self.fetch_task.is_none() {
                     self.fetch(&TripListProps {
                         start: self.trip_list.start.station_id,

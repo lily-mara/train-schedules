@@ -1,9 +1,11 @@
 use crate::{time, time_display::TimeDisplay, util};
+use std::time::Duration;
 use train_schedules_common::*;
-use yew::prelude::*;
+use yew::{prelude::*, services::interval::*};
 
 pub struct TripDisplay {
     trip: Trip,
+    _interval_task: IntervalTask,
 }
 
 #[derive(Properties)]
@@ -16,8 +18,12 @@ impl Component for TripDisplay {
     type Message = ();
     type Properties = TripProperties;
 
-    fn create(props: TripProperties, _: ComponentLink<Self>) -> Self {
-        Self { trip: props.trip }
+    fn create(props: TripProperties, mut link: ComponentLink<Self>) -> Self {
+        Self {
+            trip: props.trip,
+            _interval_task: IntervalService::new()
+                .spawn(Duration::from_secs(30), link.send_back(|_| ())),
+        }
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
@@ -25,7 +31,7 @@ impl Component for TripDisplay {
     }
 
     fn update(&mut self, _: ()) -> ShouldRender {
-        false
+        true
     }
 }
 
