@@ -9,7 +9,7 @@ use yew::{
     prelude::*,
     services::{fetch::*, interval::*},
 };
-use yew_router::{components::RouterLink, prelude::*};
+use yew_router::prelude::*;
 
 pub struct Model {
     trip_list: TripList,
@@ -18,7 +18,7 @@ pub struct Model {
     link: ComponentLink<Self>,
 }
 
-#[derive(Properties, Serialize, FromCaptures)]
+#[derive(Properties, Serialize)]
 pub struct TripListProps {
     #[props(required)]
     pub start: i32,
@@ -59,6 +59,14 @@ impl Model {
         );
 
         self.fetch_task = Some(fetch_task);
+    }
+}
+
+impl Model {
+    fn view_trip(trip: &Trip) -> Html<Self> {
+        html! {
+            <TripDisplay trip=trip></TripDisplay>
+        }
     }
 }
 
@@ -118,17 +126,7 @@ impl Component for Model {
             }
         }
     }
-}
 
-impl Model {
-    fn view_trip(trip: &Trip) -> Html<Self> {
-        html! {
-            <TripDisplay trip=trip></TripDisplay>
-        }
-    }
-}
-
-impl Renderable<Model> for Model {
     fn view(&self) -> Html<Self> {
         if self.trip_list.trips.is_empty() {
             return html! {

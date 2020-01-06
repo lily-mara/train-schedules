@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 
 import sqlite3
+import sys
 
 
 def main():
-    connection = sqlite3.connect('schedules.db')
+    db = sys.argv[1]
+
+    connection = sqlite3.connect(db)
     c = connection.cursor()
 
     rows = list(c.execute(
@@ -23,8 +26,6 @@ def main():
                 station_id += 1
 
             hashes[stop_name] = station_id
-
-        print(stop_id, stop_name, station_id)
 
         c.execute(
             'update stops set station_id=? where stop_id=?',

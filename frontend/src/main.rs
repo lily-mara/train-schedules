@@ -15,7 +15,7 @@ mod util;
 
 fn main() {
     yew::initialize();
-    App::<router::Routes>::new().mount(
+    App::<router::Model>::new().mount(
         web::document()
             .query_selector("#app-container")
             .unwrap()

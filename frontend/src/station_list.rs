@@ -5,7 +5,7 @@ use train_schedules_common::*;
 use yew::format::Nothing;
 use yew::prelude::*;
 use yew::services::fetch::*;
-use yew_router::{components::RouterLink, prelude::*};
+use yew_router::prelude::*;
 
 pub struct StationList {
     start_station_id: Option<i32>,
@@ -14,7 +14,7 @@ pub struct StationList {
     stations: Vec<Station>,
 }
 
-#[derive(Properties, FromCaptures)]
+#[derive(Properties)]
 pub struct Properties {
     pub start_station_id: Option<i32>,
 }
@@ -126,9 +126,7 @@ impl Component for StationList {
             }
         }
     }
-}
 
-impl Renderable<Self> for StationList {
     fn view(&self) -> Html<Self> {
         let title = if self.start_station_id.is_some() {
             "Choose an ending station"

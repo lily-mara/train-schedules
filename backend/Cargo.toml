@@ -8,13 +8,15 @@ edition = "2018"
 
 [dependencies]
 sqlite = "0.25.0"
-actix = "0.8.3"
-actix-web = { version = "1.0.7", features = ["rust-tls"] }
-awc = { version = "0.2.4", features = ["rust-tls"] }
-actix-rt = "0.2.4"
+actix-web = { version = "2.0.0", features = [] }
+reqwest = { version = "0.10", features = ["gzip", "json"] }
+actix-rt = "1.0.0"
 serde = "1.0.99"
 serde_json = "1.0.40"
 auto_from = "0.3.0"
 chrono = "0.4.8"
 train-schedules-common = { path = "../common" }
-futures = "0.1.29"
+futures = "0.3"
+color-backtrace = "0.3"
+log = "0.4"
+env_logger = "0.7"

@@ -33,9 +33,7 @@ impl Component for TripDisplay {
     fn update(&mut self, _: ()) -> ShouldRender {
         true
     }
-}
 
-impl Renderable<TripDisplay> for TripDisplay {
     fn view(&self) -> Html<Self> {
         let now = time::now();
         let time_to_departure = (*self.trip.start.departure - now).num_minutes();

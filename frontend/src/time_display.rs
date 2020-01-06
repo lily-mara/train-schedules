@@ -47,9 +47,7 @@ impl Component for TimeDisplay {
     fn update(&mut self, _: ()) -> ShouldRender {
         false
     }
-}
 
-impl Renderable<Self> for TimeDisplay {
     fn view(&self) -> Html<Self> {
         let formatted = self.time.format("%l:%M %p");
 

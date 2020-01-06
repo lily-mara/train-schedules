@@ -1,4 +1,4 @@
-use actix_web::{client, HttpResponse, ResponseError};
+use actix_web::{HttpResponse, ResponseError};
 use auto_from::From;
 use serde_json::json;
 use std::fmt;
@@ -7,9 +7,8 @@ use std::fmt;
 pub enum Error {
     ParseIntError(std::num::ParseIntError),
     SqlError(sqlite::Error),
-    ClientSendError(client::SendRequestError),
     JsonError(serde_json::Error),
-    PayloadError(awc::error::PayloadError),
+    ReqwestError(reqwest::Error),
 
     #[auto_from(skip)]
     NoSuchStation(i64),
@@ -20,9 +19,8 @@ impl fmt::Display for Error {
         match self {
             Error::ParseIntError(e) => write!(f, "{}", e),
             Error::SqlError(e) => write!(f, "{}", e),
-            Error::ClientSendError(e) => write!(f, "{}", e),
             Error::JsonError(e) => write!(f, "{}", e),
-            Error::PayloadError(e) => write!(f, "{}", e),
+            Error::ReqwestError(e) => write!(f, "{}", e),
             Error::NoSuchStation(station_id) => {
                 write!(f, "No station found with ID: {}", station_id)
             }
