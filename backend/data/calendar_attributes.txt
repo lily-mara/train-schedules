@@ -1,4 +1,0 @@
-service_id,service_description
-"72981","Year Round Weekday (Weekday)"
-"72982","Year Round Weekend (Weekend)"
-"72983","Year Round Saturday (Saturday only)"

@@ -1,8 +1,0 @@
-fare_id,price,currency_type,payment_method,transfers,transfer_duration
-10676,0,USD,0,0,0
-10675,15.00,USD,1,,14400
-10674,12.75,USD,1,,14400
-10673,10.50,USD,1,,14400
-10672,8.25,USD,1,,14400
-10671,6.00,USD,1,,14400
-10670,3.75,USD,1,,14400

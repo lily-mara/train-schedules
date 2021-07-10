@@ -1,7 +1,0 @@
-route_id,agency_id,route_short_name,route_long_name,route_desc,route_type,route_url,route_color,route_text_color
-"Bus Bridge","CT",Bus Bridge,SamTrans Bus Bridge,"",3,"","01529d","ffffff"
-"TaSJ-Shuttle","CT",,"TaSJ-Shuttle","",3,"","69c570","ffffff"
-"Limited","CT",,"Limited","",2,"","FEF0B5","000000"
-"Local","CT","Local",,"",2,"","c5c5c5","000000"
-"Bullet","CT",Bullet,Baby Bullet,"",2,"","E31837","ffffff"
-"Special","CT",Special,Special Event Extra Service,"",2,"","0092ff","ffffff"
