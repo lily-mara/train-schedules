@@ -1,22 +1,22 @@
 [package]
 name = "train-schedules"
 version = "0.1.0"
-authors = ["Nate Mara <nate@onesignal.com>"]
+authors = ["Lily Mara <lilymara@fastmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-sqlite = "0.25.0"
-actix-web = { version = "2.0.0", features = [] }
-reqwest = { version = "0.10", features = ["gzip", "json"] }
-actix-rt = "1.0.0"
+sqlite = "0.26.0"
+actix-web = { version = "3.0.0", features = ["rustls"] }
+actix-rt = "1.1.1"
 serde = "1.0.99"
 serde_json = "1.0.40"
 auto_from = "0.3.0"
 chrono = "0.4.8"
 train-schedules-common = { path = "../common" }
 futures = "0.3"
-color-backtrace = "0.3"
+color-backtrace = "0.5"
 log = "0.4"
-env_logger = "0.7"
+env_logger = "0.8"
+thiserror = "1"
+anyhow = "1"

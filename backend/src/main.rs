@@ -1,11 +1,10 @@
 use crate::error::{Error, Result};
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{client::Client, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use chrono::{prelude::*, Weekday};
 use log::*;
 use serde::Deserialize;
 use std::{collections::HashMap, env};
 use train_schedules_common::*;
-use reqwest::Client;
 
 mod error;
 mod types;
@@ -254,13 +253,11 @@ async fn get_station_estimated_stuff(
         stop_code=station_id
     );
 
-    let response = client.get(&url).send().await?.error_for_status()?;
+    let mut response = client.get(&url).send().await?;
 
-    let body = response.text().await?;
+    let body = response.body().await?;
 
-    debug!("API response JSON: {}", body);
-
-    let resp: types::ApiResponse = serde_json::from_str(&body[3..])?;
+    let resp: types::ApiResponse = serde_json::from_slice(&body[3..])?;
 
     debug!("Parsed API response: {:?}", resp);
     let mut trips = HashMap::new();
@@ -363,7 +360,7 @@ async fn upcoming_trips(
     let mut trips = get_upcoming_trips(&data.connection, query.start, query.end)?;
 
     if let Err(e) = add_live_status(&data.client, &data.api_key, &mut trips).await {
-        error!("Error adding realtime status to trips: {:?}", e);
+        error!("Error adding realtime status to trips: {:?}", e.chain());
     }
 
     Ok(HttpResponse::Ok().json(trips))

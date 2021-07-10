@@ -1,37 +1,40 @@
 use actix_web::{HttpResponse, ResponseError};
-use auto_from::From;
 use serde_json::json;
-use std::fmt;
+use thiserror::Error;
 
-#[derive(From, Debug)]
+#[derive(Error, Debug)]
 pub enum Error {
-    ParseIntError(std::num::ParseIntError),
-    SqlError(sqlite::Error),
-    JsonError(serde_json::Error),
-    ReqwestError(reqwest::Error),
+    #[error("failed to parse int")]
+    ParseIntError(#[from] std::num::ParseIntError),
 
-    #[auto_from(skip)]
+    #[error("error talking to SQL database")]
+    SqlError(#[from] sqlite::Error),
+
+    #[error("error deserializing JSON")]
+    JsonError(#[from] serde_json::Error),
+
+    #[error("error sending HTTP request")]
+    HttpError(#[from] actix_web::client::SendRequestError),
+
+    #[error("error receiving HTTP response payload")]
+    HttpJsonError(#[from] actix_web::client::PayloadError),
+
+    #[error("No station found with ID: {0}")]
     NoSuchStation(i64),
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::ParseIntError(e) => write!(f, "{}", e),
-            Error::SqlError(e) => write!(f, "{}", e),
-            Error::JsonError(e) => write!(f, "{}", e),
-            Error::ReqwestError(e) => write!(f, "{}", e),
-            Error::NoSuchStation(station_id) => {
-                write!(f, "No station found with ID: {}", station_id)
-            }
-        }
+impl Error {
+    pub fn chain(&self) -> Vec<String> {
+        anyhow::Chain::new(self).map(|e| format!("{}", e)).collect()
     }
 }
 
 impl ResponseError for Error {
     fn error_response(&self) -> HttpResponse {
-        let self_str = format!("{}", self);
-        let json = json!({ "error": self_str });
+        let json = json!({
+            "error": format!("{}", self),
+            "chain": self.chain(),
+        });
 
         let mut response = match self {
             Error::NoSuchStation(_) => HttpResponse::NotFound(),
