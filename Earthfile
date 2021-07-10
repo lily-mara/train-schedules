@@ -44,9 +44,16 @@ backend-base:
 
     SAVE IMAGE backend-base
 
+backend-dev-server-image:
+    FROM +backend-base
+
+    COPY +route-database/schedules.db /var/
+
+    SAVE IMAGE backend-dev-server-image
+
 backend-serve:
     LOCALLY
-    WITH DOCKER --load=+backend-base
+    WITH DOCKER --load=+backend-dev-server-image
     RUN docker-compose up backend
     END
 

@@ -29,7 +29,7 @@ async fn main() {
     color_backtrace::install();
     env_logger::init();
 
-    let db_path = env::var("DB_PATH").unwrap_or_else(|_| "schedules.db".to_owned());
+    let db_path = env::var("DB_PATH").unwrap_or_else(|_| "/var/schedules.db".to_owned());
     let api_key = env::var("API_KEY").expect("API_KEY environment variable is required");
 
     info!("Listening on 0.0.0.0:8088");

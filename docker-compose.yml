@@ -1,7 +1,7 @@
 version: "3"
 services:
   backend:
-    image: backend-base
+    image: backend-dev-server-image
     volumes:
       - "./:/code"
       - "backend_target:/target"
@@ -32,9 +32,7 @@ services:
   prebuilt-image:
     image: lilymara:train-schedules
     env_file: backend/.env
-    environment:
-      DB_PATH: "/var/schedules.db"
-    ports:
+   ports:
       - "8080:8088"
 
 volumes:
