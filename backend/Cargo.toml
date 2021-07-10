@@ -1,5 +1,5 @@
 [package]
-name = "train-schedules"
+name = "train-backend"
 version = "0.1.0"
 authors = ["Lily Mara <lilymara@fastmail.com>"]
 edition = "2018"
@@ -11,6 +11,7 @@ actix-web = { version = "3.0.0", features = [
     "rustls"
 ], default-features = false }
 actix-rt = "1.1.1"
+actix-files = "0.5"
 serde = "1.0.99"
 serde_json = "1.0.40"
 auto_from = "0.3.0"

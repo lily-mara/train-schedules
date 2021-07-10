@@ -22,6 +22,9 @@ pub enum Error {
     #[error("error receiving HTTP response payload")]
     HttpJsonError(#[from] actix_web::client::PayloadError),
 
+    #[error("error reading file")]
+    FileIOError(std::io::Error),
+
     #[error("No station found with ID: {0}")]
     NoSuchStation(i64),
 }

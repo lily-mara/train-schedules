@@ -1,4 +1,5 @@
 use crate::error::{Error, Result};
+use actix_files::{Files, NamedFile};
 use actix_web::{
     client::Client, http::StatusCode, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
@@ -42,9 +43,11 @@ async fn main() {
                 api_key: api_key.clone(),
                 client: Client::new(),
             })
+            .route("/api/stations", web::get().to(stations))
+            .route("/api/upcoming-trips", web::get().to(upcoming_trips))
             .route("/", web::get().to(index))
-            .route("/stations", web::get().to(stations))
-            .route("/upcoming-trips", web::get().to(upcoming_trips))
+            .service(Files::new("/", "/var/www/"))
+            .default_service(web::route().to(index))
     })
     .bind("0.0.0.0:8088")
     .unwrap()
@@ -53,8 +56,8 @@ async fn main() {
     .expect("Failed to run server");
 }
 
-async fn index(_req: HttpRequest) -> &'static str {
-    "Hello world!"
+async fn index() -> Result<NamedFile> {
+    Ok(NamedFile::open("/var/www/index.html").map_err(Error::FileIOError)?)
 }
 
 fn get_trip_ids_that_hit_stations(
