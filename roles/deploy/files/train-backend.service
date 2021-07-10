@@ -1,9 +1,0 @@
-[Unit]
-Description=Train Backend Server
-
-[Service]
-ExecStart=/usr/local/bin/train-schedules
-EnvironmentFile=/var/lib/trains/env
-
-[Install]
-WantedBy=multi-user.target

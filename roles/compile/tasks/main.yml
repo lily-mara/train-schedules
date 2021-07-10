@@ -1,9 +1,0 @@
-- name: 'compile backend'
-  command: 'cargo build --release'
-  args:
-    chdir: '{{ playbook_dir }}/backend'
-
-- name: 'compile frontend'
-  command: 'cargo web deploy --release'
-  args:
-    chdir: '{{ playbook_dir }}/frontend'
