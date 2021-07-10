@@ -106,7 +106,7 @@ docker:
     CMD /usr/bin/train-backend
 
     SAVE IMAGE --push lilymara/train-schedules:$EARTHLY_GIT_HASH
-    SAVE IMAGE lilymara/train-schedules
+    SAVE IMAGE --push lilymara/train-schedules:latest
 
 serve-docker:
     LOCALLY
@@ -135,4 +135,4 @@ deploy:
     LOCALLY
     RUN earthly --push +docker
 
-    RUN caprover deploy
+    RUN caprover deploy --default
