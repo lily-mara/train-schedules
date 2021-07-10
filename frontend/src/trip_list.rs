@@ -1,6 +1,6 @@
 use crate::trip_display::TripDisplay;
-use failure::Error;
-use log::log;
+use anyhow::Error;
+use log::error;
 use serde::Serialize;
 use std::time::Duration;
 use train_schedules_common::*;
@@ -9,7 +9,6 @@ use yew::{
     prelude::*,
     services::{fetch::*, interval::*},
 };
-use yew_router::prelude::*;
 
 pub struct Model {
     trip_list: TripList,
@@ -18,12 +17,10 @@ pub struct Model {
     link: ComponentLink<Self>,
 }
 
-#[derive(Properties, Serialize)]
+#[derive(Properties, Clone, Serialize)]
 pub struct TripListProps {
-    #[props(required)]
     pub start: i32,
 
-    #[props(required)]
     pub end: i32,
 }
 
@@ -42,7 +39,7 @@ fn process_trips(response: Response<Result<String, Error>>) -> Result<TripList, 
 
 impl Model {
     fn fetch(&mut self, props: &TripListProps) {
-        let fetch_task = FetchService::new().fetch(
+        let fetch_task = match FetchService::fetch(
             Request::get(format!(
                 "/api/upcoming-trips?start={}&end={}",
                 props.start, props.end
@@ -50,22 +47,28 @@ impl Model {
             .body(Nothing)
             .unwrap(),
             self.link
-                .send_back(|response: Response<Result<String, Error>>| {
+                .callback(|response: Response<Result<String, Error>>| {
                     match process_trips(response) {
                         Ok(trips) => Message::FetchFinished(trips),
                         Err(e) => Message::FetchError(e),
                     }
                 }),
-        );
+        ) {
+            Ok(task) => task,
+            Err(e) => {
+                error!("Failed to create fetch task: {}", e);
+                return;
+            }
+        };
 
         self.fetch_task = Some(fetch_task);
     }
 }
 
 impl Model {
-    fn view_trip(trip: &Trip) -> Html<Self> {
+    fn view_trip(trip: &Trip) -> Html {
         html! {
-            <TripDisplay trip=trip></TripDisplay>
+            <TripDisplay trip=trip.clone()></TripDisplay>
         }
     }
 }
@@ -74,10 +77,10 @@ impl Component for Model {
     type Message = Message;
     type Properties = TripListProps;
 
-    fn create(props: TripListProps, mut link: ComponentLink<Self>) -> Self {
-        let interval_task = IntervalService::new().spawn(
+    fn create(props: TripListProps, link: ComponentLink<Self>) -> Self {
+        let interval_task = IntervalService::spawn(
             Duration::from_secs(60),
-            link.send_back(|_| Message::RefetchData),
+            link.callback(|_| Message::RefetchData),
         );
 
         let mut model = Self {
@@ -111,7 +114,7 @@ impl Component for Model {
                 true
             }
             Message::FetchError(e) => {
-                log!(format!("{}", e));
+                error!("Fetch error {}", e);
                 self.fetch_task = None;
                 false
             }
@@ -127,7 +130,7 @@ impl Component for Model {
         }
     }
 
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
         if self.trip_list.trips.is_empty() {
             return html! {
                 <h1>{ "No trips found" }</h1>
@@ -143,7 +146,11 @@ impl Component for Model {
             <div class="TripList">
                 <h1>{ "Upcoming trains" }</h1>
                 <h2>{ format!("{} → {}", self.trip_list.start.name, self.trip_list.end.name) } </h2>
-                <h3><RouterLink classes="DirectionFlip" text="Change Direction" link=flipped_url /></h3>
+                <h3>
+                    <a classes="DirectionFlip" href=flipped_url>
+                        {"Change Direction"}
+                    </a>
+                </h3>
                 { for self.trip_list.trips.iter().map(Self::view_trip) }
             </div>
         }

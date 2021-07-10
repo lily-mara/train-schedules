@@ -1,11 +1,10 @@
 use crate::util;
-use failure::Error;
-use log::log;
+use anyhow::Error;
+use log::error;
 use train_schedules_common::*;
 use yew::format::Nothing;
 use yew::prelude::*;
 use yew::services::fetch::*;
-use yew_router::prelude::*;
 
 pub struct StationList {
     start_station_id: Option<i32>,
@@ -14,7 +13,7 @@ pub struct StationList {
     stations: Vec<Station>,
 }
 
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct Properties {
     pub start_station_id: Option<i32>,
 }
@@ -32,7 +31,7 @@ pub enum Message {
     FetchError(Error),
 }
 
-fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html<StationList> {
+fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html {
     match start_station_id {
         Some(start_station_id) if *start_station_id == station.station_id => {
             html! {}
@@ -42,19 +41,19 @@ fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html<Stati
 
             html! {
                 <li>
-                    <RouterLink link=link, text=&station.name />
+                    <a href=link> { &station.name } </a>
                 </li>
             }
         }
-        None => html! {
+        None => {
             let link = format!("/c/{}", station.station_id);
 
             html! {
                 <li>
-                    <RouterLink link=link, text=&station.name />
+                    <a href=link> { &station.name } </a>
                 </li>
             }
-        },
+        }
     }
 }
 
@@ -81,21 +80,27 @@ impl Component for StationList {
     type Message = Message;
     type Properties = Properties;
 
-    fn create(props: Self::Properties, mut link: ComponentLink<Self>) -> Self {
-        let task = FetchService::new().fetch(
+    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+        let task = match FetchService::fetch(
             Request::get("/api/stations").body(Nothing).unwrap(),
-            link.send_back(
+            link.callback(
                 |response: Response<Result<String, Error>>| match send_back(response) {
                     Ok(trips) => Message::FetchFinished(trips),
                     Err(e) => Message::FetchError(e),
                 },
             ),
-        );
+        ) {
+            Ok(task) => Some(task),
+            Err(e) => {
+                error!("Failed to create fetch task: {}", e);
+                None
+            }
+        };
 
         Self {
             start_station_id: props.start_station_id,
             start_station_name: None,
-            task: Some(task),
+            task,
             stations: Vec::new(),
         }
     }
@@ -121,13 +126,13 @@ impl Component for StationList {
                 true
             }
             Message::FetchError(e) => {
-                log!(format!("{}", e));
+                error!("Fetch error: {}", e);
                 false
             }
         }
     }
 
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
         let title = if self.start_station_id.is_some() {
             "Choose an ending station"
         } else {

@@ -9,7 +9,10 @@ pub enum Routes {
     TripList { start: i32, end: i32 },
 
     #[to = "/c/{start}"]
-    StationList { start: Option<i32> },
+    StationList { start: i32 },
+
+    #[to = "/c/"]
+    StationListRoot,
 
     #[to = "/"]
     Index,
@@ -35,17 +38,22 @@ impl Component for Model {
         false
     }
 
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
         html! {
             <Router<Routes, ()>
                 render = Router::render(|switch: Routes| {
                     match switch {
                         Routes::StationList{start} => html! { <station_list::StationList start_station_id=start /> },
+                        Routes::StationListRoot => html! { <station_list::StationList start_station_id=None /> },
                         Routes::Index => html! { <station_list::StationList start_station_id=None /> },
-                        Routes::TripList{start, end} => html! { <trip_list::Model start=start, end=end /> },
+                        Routes::TripList{start, end} => html! { <trip_list::Model start=start end=end /> },
                     }
                 })
             />
         }
+    }
+
+    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
+        false
     }
 }

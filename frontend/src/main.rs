@@ -1,10 +1,8 @@
 #![recursion_limit = "2048"]
 
-use stdweb::web::{self, IParentNode};
+use log::Level;
 use yew::prelude::*;
 
-#[macro_use]
-mod classes;
 mod router;
 mod station_list;
 mod time;
@@ -14,12 +12,12 @@ mod trip_list;
 mod util;
 
 fn main() {
+    console_log::init_with_level(Level::Debug).unwrap();
+
+    let window = web_sys::window().unwrap();
+    let document = window.document().unwrap();
+
     yew::initialize();
-    App::<router::Model>::new().mount(
-        web::document()
-            .query_selector("#app-container")
-            .unwrap()
-            .unwrap(),
-    );
+    App::<router::Model>::new().mount(document.query_selector("#app-container").unwrap().unwrap());
     yew::run_loop();
 }

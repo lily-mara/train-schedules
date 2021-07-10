@@ -1,12 +1,8 @@
 use chrono::prelude::*;
-use stdweb::{js, unstable::TryInto};
 
 pub fn now() -> DateTime<FixedOffset> {
-    let timestamp = js! {
-        return new Date().getTime();
-    };
-
-    let timestamp: i64 = timestamp.try_into().unwrap();
+    let date = js_sys::Date::new_0();
+    let timestamp = date.get_time() as i64;
 
     let timestamp_secs = timestamp / 1_000;
     let timestamp_millis = timestamp % 1_000;
@@ -18,11 +14,8 @@ pub fn now() -> DateTime<FixedOffset> {
 }
 
 pub fn local_offset() -> FixedOffset {
-    let offset = js! {
-        return new Date().getTimezoneOffset();
-    };
-
-    let offset: i32 = offset.try_into().unwrap();
+    let date = js_sys::Date::new_0();
+    let offset = date.get_timezone_offset() as i32;
 
     FixedOffset::west(offset * 60)
 }

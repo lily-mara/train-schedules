@@ -1,14 +1,7 @@
 version: "3"
 services:
-  proxy:
-    image: nginx
-    ports:
-      - "9090:80"
-    volumes:
-      - "./dev-proxy/:/etc/nginx/conf.d/"
-
   backend:
-    image: rust:1.38
+    image: rust:1.53
     volumes:
       - "./:/code"
       - "backend_target:/target"
@@ -16,11 +9,12 @@ services:
     environment:
       CARGO_TARGET_DIR: "/target"
       CARGO_HOME: "/cargo-home"
+      API_KEY: 'x'
     working_dir: "/code/backend"
     command: cargo run
 
   frontend:
-    image: rust:1.38
+    build: frontend
     volumes:
       - "./:/code"
       - "frontend_target:/target"
@@ -29,7 +23,7 @@ services:
       CARGO_TARGET_DIR: "/target"
       CARGO_HOME: "/cargo-home"
     working_dir: "/code/backend"
-    command: cargo web start --host 0.0.0.0:8080
+    command: trunk serve
 
 volumes:
   backend_target: {}

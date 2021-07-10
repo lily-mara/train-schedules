@@ -8,9 +8,8 @@ pub struct TripDisplay {
     _interval_task: IntervalTask,
 }
 
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct TripProperties {
-    #[props(required)]
     pub trip: Trip,
 }
 
@@ -18,11 +17,10 @@ impl Component for TripDisplay {
     type Message = ();
     type Properties = TripProperties;
 
-    fn create(props: TripProperties, mut link: ComponentLink<Self>) -> Self {
+    fn create(props: TripProperties, link: ComponentLink<Self>) -> Self {
         Self {
             trip: props.trip,
-            _interval_task: IntervalService::new()
-                .spawn(Duration::from_secs(30), link.send_back(|_| ())),
+            _interval_task: IntervalService::spawn(Duration::from_secs(30), link.callback(|_| ())),
         }
     }
 
@@ -34,7 +32,7 @@ impl Component for TripDisplay {
         true
     }
 
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
         let now = time::now();
         let time_to_departure = (*self.trip.start.departure - now).num_minutes();
 

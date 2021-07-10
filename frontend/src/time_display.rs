@@ -8,11 +8,11 @@ pub struct TimeDisplay {
     now: Option<DateTime<FixedOffset>>,
 }
 
-#[derive(Properties)]
+#[derive(Properties, Clone)]
 pub struct Properties {
-    #[props(required)]
     pub time: Time,
 
+    #[prop_or_default]
     pub now: Option<DateTime<FixedOffset>>,
 }
 
@@ -48,7 +48,7 @@ impl Component for TimeDisplay {
         false
     }
 
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
         let formatted = self.time.format("%l:%M %p");
 
         let title = if self.time.is_live() {
@@ -57,8 +57,14 @@ impl Component for TimeDisplay {
             String::from("")
         };
 
+        let time_display_relative = if self.time.is_live() {
+            Some("TimeDisplay--realtime")
+        } else {
+            None
+        };
+
         html! {
-            <span class=classes!("TimeDisplay", "TimeDisplay--realtime" => self.time.is_live()) title=title>
+            <span class=classes!("TimeDisplay", time_display_relative) title=title>
             { format!("{}", formatted) }
             { self.date_diff_tooltip() }
             </span>
@@ -67,7 +73,7 @@ impl Component for TimeDisplay {
 }
 
 impl TimeDisplay {
-    fn date_diff_tooltip(&self) -> Html<Self> {
+    fn date_diff_tooltip(&self) -> Html {
         let now = self.now.unwrap_or_else(time::now);
         let today = now.date();
         let date = self.time.date();
