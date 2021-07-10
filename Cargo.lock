@@ -55,14 +55,12 @@ dependencies = [
  "actix-utils",
  "base64 0.13.0",
  "bitflags",
- "brotli2",
  "bytes 0.5.6",
  "cookie",
  "copyless",
  "derive_more",
  "either",
  "encoding_rs",
- "flate2",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -442,26 +440,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfa8873f51c92e232f9bac4065cddef41b714152812bfc5f7672ba16d6ef8cd9"
 
 [[package]]
-name = "brotli-sys"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4445dea95f4c2b41cde57cc9fee236ae4dbae88d8fcbdb4750fc1bb5d86aaecd"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
-name = "brotli2"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cb036c3eade309815c15ddbacec5b22c4d1f3983a774ab2eac2e3e9ea85568e"
-dependencies = [
- "brotli-sys",
- "libc",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -603,15 +581,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crc32fast"
-version = "1.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81156fece84ab6a9f2afdb109ce3ae577e42b1228441eded99bd77f627953b1a"
-dependencies = [
- "cfg-if 1.0.0",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,18 +646,6 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
-]
-
-[[package]]
-name = "flate2"
-version = "1.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd3aec53de10fe96d7d8c565eb17f2c687bb5518a2ec453b5b1252964526abe0"
-dependencies = [
- "cfg-if 1.0.0",
- "crc32fast",
- "libc",
- "miniz_oxide",
 ]
 
 [[package]]

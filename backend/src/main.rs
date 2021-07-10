@@ -1,5 +1,7 @@
 use crate::error::{Error, Result};
-use actix_web::{client::Client, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    client::Client, http::StatusCode, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
+};
 use chrono::{prelude::*, Weekday};
 use log::*;
 use serde::Deserialize;
@@ -256,6 +258,14 @@ async fn get_station_estimated_stuff(
     let mut response = client.get(&url).send().await?;
 
     let body = response.body().await?;
+
+    if response.status() != StatusCode::OK {
+        let body = String::from_utf8_lossy(&body).into_owned();
+        return Err(Error::FiveOneOneServerError {
+            code: response.status(),
+            body,
+        });
+    }
 
     let resp: types::ApiResponse = serde_json::from_slice(&body[3..])?;
 

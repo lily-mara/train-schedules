@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, ResponseError};
+use actix_web::{http::StatusCode, HttpResponse, ResponseError};
 use serde_json::json;
 use thiserror::Error;
 
@@ -15,6 +15,9 @@ pub enum Error {
 
     #[error("error sending HTTP request")]
     HttpError(#[from] actix_web::client::SendRequestError),
+
+    #[error("Got bad response from 501 API server. Code={code}, Body={body}")]
+    FiveOneOneServerError { code: StatusCode, body: String },
 
     #[error("error receiving HTTP response payload")]
     HttpJsonError(#[from] actix_web::client::PayloadError),
