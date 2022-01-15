@@ -1,60 +1,45 @@
-use crate::{time, time_display::TimeDisplay, util};
-use std::time::Duration;
+use crate::{time, time_display::TimeDisplay};
+use gloo::timers::callback::Interval;
 use train_schedules_common::*;
-use yew::{prelude::*, services::interval::*};
+use yew::prelude::*;
 
-pub struct TripDisplay {
-    trip: Trip,
-    _interval_task: IntervalTask,
-}
-
-#[derive(Properties, Clone)]
+#[derive(Properties, Clone, PartialEq)]
 pub struct TripProperties {
     pub trip: Trip,
 }
 
-impl Component for TripDisplay {
-    type Message = ();
-    type Properties = TripProperties;
+#[function_component(TripDisplay)]
+pub fn view(props: &TripProperties) -> Html {
+    let updater = use_state(|| ());
+    let _interval = use_state(|| {
+        Interval::new(30_000, move || {
+            updater.set(());
+        })
+    });
 
-    fn create(props: TripProperties, link: ComponentLink<Self>) -> Self {
-        Self {
-            trip: props.trip,
-            _interval_task: IntervalService::spawn(Duration::from_secs(30), link.callback(|_| ())),
-        }
-    }
+    let trip = &props.trip;
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        util::state_changed(&mut self.trip, props.trip)
-    }
+    let now = time::now();
+    let time_to_departure = (*&*trip.start.departure - now).num_minutes();
 
-    fn update(&mut self, _: ()) -> ShouldRender {
-        true
-    }
+    let service_class = match trip.trip_id / 100 {
+        1 | 4 => "local",
+        2 => "limited",
+        3 | 8 => "bullet",
+        _ => "",
+    };
 
-    fn view(&self) -> Html {
-        let now = time::now();
-        let time_to_departure = (*self.trip.start.departure - now).num_minutes();
+    let transit_time = (*&*trip.end.departure - *&*trip.start.arrival)
+        .num_minutes()
+        .abs();
 
-        let service_class = match self.trip.trip_id / 100 {
-            1 | 4 => "local",
-            2 => "limited",
-            3 | 8 => "bullet",
-            _ => "",
-        };
-
-        let transit_time = (*self.trip.end.departure - *self.trip.start.arrival)
-            .num_minutes()
-            .abs();
-
-        html! {
-            <div class=classes!("TripDisplay")>
-                <div class=classes!("TrainID", service_class)>{ self.trip.trip_id }</div>
-                <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
-                <div class="DepartTime">{"Departing "}<TimeDisplay time=self.trip.start.departure /></div>
-                <div class="ArrivalTime">{"Arriving "}<TimeDisplay time=self.trip.end.arrival /></div>
-                <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
-            </div>
-        }
+    html! {
+        <div class={ classes!("TripDisplay") }>
+            <div class={ classes!("TrainID", service_class) }>{ trip.trip_id }</div>
+            <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
+            <div class="DepartTime">{"Departing "}<TimeDisplay time={ trip.start.departure } /></div>
+            <div class="ArrivalTime">{"Arriving "}<TimeDisplay time={ trip.end.arrival } /></div>
+            <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
+        </div>
     }
 }

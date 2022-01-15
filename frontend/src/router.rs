@@ -3,57 +3,43 @@ use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 use yew_router::prelude::*;
 
-#[derive(Switch, Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Routes {
-    #[to = "/c/{start}/{end}"]
+#[derive(Routable, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Route {
+    #[at("/c/:start/:end")]
     TripList { start: i32, end: i32 },
 
-    #[to = "/c/{start}"]
+    #[at("/c/:start")]
     StationList { start: i32 },
 
-    #[to = "/c/"]
+    #[at("/c/")]
     StationListRoot,
 
-    #[to = "/"]
+    #[at("/")]
     Index,
 }
 
-impl Default for Routes {
+impl Default for Route {
     fn default() -> Self {
         Self::Index
     }
 }
 
-pub struct Model;
-
-impl Component for Model {
-    type Message = ();
-    type Properties = ();
-
-    fn create(_: Self::Properties, _: ComponentLink<Self>) -> Self {
-        Self
+#[function_component(Main)]
+pub fn main() -> Html {
+    html! {
+        <BrowserRouter>
+            <Switch<Route> render={Switch::render(switch)} />
+        </BrowserRouter>
     }
+}
 
-    fn update(&mut self, _: Self::Message) -> ShouldRender {
-        false
-    }
-
-    fn view(&self) -> Html {
-        html! {
-            <Router<Routes, ()>
-                render = Router::render(|switch: Routes| {
-                    match switch {
-                        Routes::StationList{start} => html! { <station_list::StationList start_station_id=start /> },
-                        Routes::StationListRoot => html! { <station_list::StationList start_station_id=None /> },
-                        Routes::Index => html! { <station_list::StationList start_station_id=None /> },
-                        Routes::TripList{start, end} => html! { <trip_list::Model start=start end=end /> },
-                    }
-                })
-            />
+fn switch(route: &Route) -> Html {
+    match route {
+        Route::StationList { start } => {
+            html! { <station_list::StationList start_station_id={*start} /> }
         }
-    }
-
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
+        Route::StationListRoot => html! { <station_list::StationList start_station_id={None} /> },
+        Route::Index => html! { <station_list::StationList start_station_id={None} /> },
+        Route::TripList { start, end } => html! { <trip_list::Model start={*start} end={*end} /> },
     }
 }

@@ -9,3 +9,7 @@ where
 
     false
 }
+
+pub fn host() -> &'static str {
+    unsafe { &crate::HOST }
+}

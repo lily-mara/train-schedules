@@ -2,14 +2,14 @@ use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::ops::Deref;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct TripList {
     pub start: Station,
     pub end: Station,
     pub trips: Vec<Trip>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Station {
     pub name: String,
     pub station_id: i32,
