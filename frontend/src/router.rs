@@ -1,4 +1,4 @@
-use crate::{context::Context, station_list, train_view, trip_list};
+use crate::{context::Context, station_list, trip_view, twostop_list};
 use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -6,13 +6,13 @@ use yew_router::prelude::*;
 #[derive(Routable, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Route {
     #[at("/c/station/:start/:end")]
-    TripList { start: i64, end: i64 },
+    Twostop { start: i64, end: i64 },
 
     #[at("/c/station/:start")]
     StationList { start: i64 },
 
-    #[at("/c/train/:train_id")]
-    TrainView { train_id: i64 },
+    #[at("/c/trip/:trip_id")]
+    Trip { trip_id: i64 },
 
     #[at("/c/")]
     StationListRoot,
@@ -47,7 +47,9 @@ fn switch(route: &Route) -> Html {
         }
         Route::StationListRoot => html! { <station_list::StationList start_station_id={None} /> },
         Route::Index => html! { <station_list::StationList start_station_id={None} /> },
-        Route::TripList { start, end } => html! { <trip_list::Model start={*start} end={*end} /> },
-        Route::TrainView { train_id } => html! { <train_view::TrainView train_id={*train_id} /> },
+        Route::Twostop { start, end } => {
+            html! { <twostop_list::Model start={*start} end={*end} /> }
+        }
+        Route::Trip { trip_id } => html! { <trip_view::TripView trip_id={*trip_id} /> },
     }
 }

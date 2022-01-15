@@ -5,9 +5,14 @@ use actix_web::{
 };
 use chrono::{prelude::*, Weekday};
 use chrono_tz::US::Pacific;
+use futures::{stream::FuturesUnordered, StreamExt};
 use log::*;
 use serde::Deserialize;
-use std::{collections::HashMap, env};
+use sqlite::Statement;
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+};
 use train_schedules_common::*;
 
 mod error;
@@ -142,19 +147,23 @@ fn load_all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
     Ok(stations)
 }
 
-fn get_upcoming_trips(
-    connection: &sqlite::Connection,
+async fn get_twostops(
+    data: web::Data<AppState>,
     start_station_id: i64,
     end_station_id: i64,
-) -> Result<TripList> {
-    let service_ids = get_active_service_ids(connection)?;
+) -> Result<TwoStopList> {
+    let service_ids = get_active_service_ids(&data.connection)?;
 
-    let trip_ids =
-        get_trip_ids_that_hit_stations(connection, start_station_id, end_station_id, &service_ids)?;
+    let trip_ids = get_trip_ids_that_hit_stations(
+        &data.connection,
+        start_station_id,
+        end_station_id,
+        &service_ids,
+    )?;
 
-    let mut stmt = connection.prepare(
+    let mut stmt = data.connection.prepare(
         "
-        select distinct station_id, departure_time, arrival_time, stop_times.trip_id
+        select distinct stop_name, station_id, departure_time, arrival_time, stop_times.trip_id
         from stop_times
         join trips on trips.trip_id=stop_times.trip_id
         join stops on stop_times.stop_id = stops.stop_id
@@ -164,8 +173,8 @@ fn get_upcoming_trips(
         ",
     )?;
 
-    let start_station = load_station(connection, start_station_id)?;
-    let end_station = load_station(connection, end_station_id)?;
+    let start_station = load_station(&data.connection, start_station_id)?;
+    let end_station = load_station(&data.connection, end_station_id)?;
     let now = Local::now().with_timezone(&FixedOffset::east(0));
 
     let mut trips = HashMap::new();
@@ -175,33 +184,28 @@ fn get_upcoming_trips(
         stmt.bind(2, start_station_id)?;
         stmt.bind(3, end_station_id)?;
 
-        while let sqlite::State::Row = stmt.next()? {
-            let station_name = match stmt.read::<i64>(0)? {
+        let mut stops = read_stops(&mut stmt)?;
+        if let Err(e) = add_live_status(&data.client, &data.api_key, &mut stops).await {
+            error!("Error adding realtime status to trips: {:?}", e.chain());
+        }
+
+        for stop in stops {
+            let station_name = match stop.station_id {
                 x if x == start_station_id => "start",
                 x if x == end_station_id => "end",
                 _ => continue,
             };
 
-            let departure_str: String = stmt.read(1)?;
-            let departure = parse_time(&departure_str)?;
-
-            let arrival_str: String = stmt.read(2)?;
-            let arrival = parse_time(&arrival_str)?;
-
-            if departure < now || arrival < now {
+            if *stop.departure < now || *stop.arrival < now {
                 continue;
             }
 
-            let trip_id = stmt.read::<i64>(3)?;
-
-            trips.entry(trip_id).or_insert_with(HashMap::new).insert(
-                station_name,
-                Departure {
-                    departure: Time::new(departure),
-                    arrival: Time::new(departure),
-                },
-            );
+            trips
+                .entry(stop.trip_id)
+                .or_insert_with(HashMap::new)
+                .insert(station_name, stop);
         }
+
         stmt.reset()?;
     }
 
@@ -215,7 +219,7 @@ fn get_upcoming_trips(
                 return None;
             }
 
-            Some(Trip {
+            Some(TwoStop {
                 trip_id,
                 start,
                 end,
@@ -225,7 +229,7 @@ fn get_upcoming_trips(
 
     trips.sort_by(|a, b| a.start.departure.cmp(&b.start.departure));
 
-    Ok(TripList {
+    Ok(TwoStopList {
         trips,
         start: start_station,
         end: end_station,
@@ -317,24 +321,31 @@ async fn get_station_estimated_stuff(
     Ok(trips)
 }
 
-async fn add_live_status(client: &Client, api_key: &str, trips: &mut TripList) -> Result<()> {
-    let start = trips.start.station_id;
-    let end = trips.end.station_id;
+async fn add_live_status(client: &Client, api_key: &str, stops: &mut Vec<Stop>) -> Result<()> {
+    let stations = stops.iter().map(|s| s.station_id).collect::<HashSet<_>>();
 
-    let (start_data, end_data) = futures::try_join!(
-        get_station_estimated_stuff(client, api_key, start),
-        get_station_estimated_stuff(client, api_key, end)
-    )?;
+    let mut futures = FuturesUnordered::new();
+    for station_id in stations {
+        futures.push(async move {
+            let data = get_station_estimated_stuff(client, api_key, station_id).await?;
 
-    for trip in &mut trips.trips {
-        if let Some((departure, arrival)) = start_data.get(&trip.trip_id) {
-            trip.start.departure.estimated = Some(*departure);
-            trip.start.arrival.estimated = Some(*arrival);
+            Ok::<_, Error>((station_id, data))
+        });
+    }
+
+    let mut data = HashMap::new();
+
+    while let Some(result) = futures.next().await {
+        let (station_id, station_data) = result?;
+        for (trip_id, trip_data) in station_data {
+            data.insert((station_id, trip_id), trip_data);
         }
+    }
 
-        if let Some((departure, arrival)) = end_data.get(&trip.trip_id) {
-            trip.end.departure.estimated = Some(*departure);
-            trip.end.arrival.estimated = Some(*arrival);
+    for stop in stops {
+        if let Some((departure, arrival)) = data.get(&(stop.station_id, stop.trip_id)) {
+            stop.departure.estimated = Some(*departure);
+            stop.arrival.estimated = Some(*arrival);
         }
     }
 
@@ -377,7 +388,41 @@ fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>
     Ok(ids)
 }
 
-fn get_trip(connection: &sqlite::Connection, trip_id: i64) -> Result<IndividualTrip> {
+/// Expecting a statement with the following select columns:
+/// - stop_name
+/// - station_id
+/// - departure_time
+/// - arrival_time
+/// - stop_times.trip_id
+fn read_stops(stmt: &mut Statement) -> Result<Vec<Stop>> {
+    let mut stops = Vec::new();
+
+    while let sqlite::State::Row = stmt.next()? {
+        let station_name: String = stmt.read(0)?;
+
+        let station_id: i64 = stmt.read(1)?;
+
+        let departure_str: String = stmt.read(2)?;
+        let departure = parse_time(&departure_str)?;
+
+        let arrival_str: String = stmt.read(3)?;
+        let arrival = parse_time(&arrival_str)?;
+
+        let trip_id = stmt.read(4)?;
+
+        stops.push(Stop {
+            trip_id,
+            station_id,
+            station_name,
+            arrival: Time::new(arrival),
+            departure: Time::new(departure),
+        });
+    }
+
+    Ok(stops)
+}
+
+fn get_trip(connection: &sqlite::Connection, trip_id: i64) -> Result<Trip> {
     let mut stmt = connection.prepare(
         "
         select distinct stop_name, station_id, departure_time, arrival_time, stop_times.trip_id
@@ -391,33 +436,9 @@ fn get_trip(connection: &sqlite::Connection, trip_id: i64) -> Result<IndividualT
 
     stmt.bind(1, trip_id)?;
 
-    let mut stations = Vec::new();
+    let stops = read_stops(&mut stmt)?;
 
-    while let sqlite::State::Row = stmt.next()? {
-        let station_name: String = stmt.read(0)?;
-
-        let station_id: i64 = stmt.read(1)?;
-
-        let departure_str: String = stmt.read(2)?;
-        let departure = parse_time(&departure_str)?;
-
-        let arrival_str: String = stmt.read(3)?;
-        let arrival = parse_time(&arrival_str)?;
-
-        stations.push(IndividualStation {
-            id: station_id,
-            name: station_name,
-            departure: Departure {
-                arrival: Time::new(arrival),
-                departure: Time::new(departure),
-            },
-        })
-    }
-
-    Ok(IndividualTrip {
-        id: trip_id,
-        stations,
-    })
+    Ok(Trip { trip_id, stops })
 }
 
 async fn trip(query: web::Query<TripQuery>, data: web::Data<AppState>) -> Result<HttpResponse> {
@@ -434,13 +455,9 @@ async fn upcoming_trips(
     query: web::Query<UpcomingTripsQuery>,
     data: web::Data<AppState>,
 ) -> Result<HttpResponse> {
-    let mut trips = get_upcoming_trips(&data.connection, query.start, query.end)?;
+    let twostops = get_twostops(data, query.start, query.end).await?;
 
-    if let Err(e) = add_live_status(&data.client, &data.api_key, &mut trips).await {
-        error!("Error adding realtime status to trips: {:?}", e.chain());
-    }
-
-    Ok(HttpResponse::Ok().json(trips))
+    Ok(HttpResponse::Ok().json(twostops))
 }
 
 async fn stations(_req: HttpRequest, data: web::Data<AppState>) -> Result<impl Responder> {

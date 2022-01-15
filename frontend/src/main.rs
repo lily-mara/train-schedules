@@ -9,9 +9,9 @@ mod router;
 mod station_list;
 mod time;
 mod time_display;
-mod train_view;
-mod trip_display;
-mod trip_list;
+mod trip_view;
+mod twostop;
+mod twostop_list;
 
 fn main() {
     console_log::init_with_level(Level::Debug).unwrap();
