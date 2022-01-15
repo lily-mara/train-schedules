@@ -1,4 +1,4 @@
-use crate::{trip_display::TripDisplay, util};
+use crate::{context::host, trip_display::TripDisplay};
 use anyhow::Result;
 use gloo::timers::callback::Interval;
 use log::error;
@@ -14,8 +14,7 @@ pub struct TripListProps {
     pub end: i32,
 }
 
-async fn fetch_trip_list(props: &TripListProps) -> Result<TripList> {
-    let host = util::host();
+async fn fetch_trip_list(host: &str, props: &TripListProps) -> Result<TripList> {
     let url = format!(
         "{host}/api/upcoming-trips?start={}&end={}",
         props.start, props.end
@@ -32,15 +31,17 @@ async fn fetch_trip_list(props: &TripListProps) -> Result<TripList> {
 #[function_component(Model)]
 pub fn trip_list(props: &TripListProps) -> Html {
     let trip_list = use_state_eq(|| TripList::default());
+    let host = host();
 
     let trip_list_for_interval = trip_list.clone();
     let props_for_interval = props.clone();
+    let host_for_initial = host.clone();
 
     let trip_list_for_initial = trip_list.clone();
     let props_for_initial = props.clone();
 
     spawn_local(async move {
-        match fetch_trip_list(&props_for_initial).await {
+        match fetch_trip_list(&host_for_initial, &props_for_initial).await {
             Ok(list) => trip_list_for_initial.set(list),
             Err(e) => error!("failed to fetch trip list {}", e),
         }
@@ -50,9 +51,10 @@ pub fn trip_list(props: &TripListProps) -> Html {
         Interval::new(60_000, move || {
             let props_for_interval = props_for_interval.clone();
             let trip_list_for_interval = trip_list_for_interval.clone();
+            let host = host.clone();
 
             spawn_local(async move {
-                match fetch_trip_list(&props_for_interval).await {
+                match fetch_trip_list(&host, &props_for_interval).await {
                     Ok(list) => trip_list_for_interval.set(list),
                     Err(e) => error!("failed to fetch trip list {}", e),
                 }

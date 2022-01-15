@@ -1,4 +1,4 @@
-use crate::{station_list, trip_list};
+use crate::{context::Context, station_list, trip_list};
 use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 use yew_router::prelude::*;
@@ -25,11 +25,15 @@ impl Default for Route {
 }
 
 #[function_component(Main)]
-pub fn main() -> Html {
+pub fn main(props: &Context) -> Html {
+    let context = use_state(|| props.clone());
+
     html! {
-        <BrowserRouter>
-            <Switch<Route> render={Switch::render(switch)} />
-        </BrowserRouter>
+        <ContextProvider<Context> context={(*context).clone()} >
+            <BrowserRouter>
+                <Switch<Route> render={Switch::render(switch)} />
+            </BrowserRouter>
+        </ContextProvider<Context>>
     }
 }
 
