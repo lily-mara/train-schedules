@@ -32,7 +32,7 @@ services:
   prebuilt-image:
     image: lilymara:train-schedules
     env_file: backend/.env
-   ports:
+    ports:
       - "8080:8088"
 
 volumes:

@@ -1,4 +1,4 @@
-FROM rust:1.53-bullseye
+FROM rust:1.58-bullseye
 
 chef:
     RUN cargo install cargo-chef
@@ -15,12 +15,7 @@ chef:
 frontend-base:
     RUN rustup target add wasm32-unknown-unknown
 
-    RUN wget -qO- https://github.com/thedodd/trunk/releases/download/v0.11.0/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf- && \
-        mv /trunk /bin/trunk
-
-    RUN wget -qO- https://github.com/rustwasm/wasm-bindgen/releases/download/0.2.74/wasm-bindgen-0.2.74-x86_64-unknown-linux-musl.tar.gz | tar -xzf- && \
-        mv wasm-bindgen-0.2.74-x86_64-unknown-linux-musl/wasm* /bin/ && \
-        rm -rf /wasm-bindgen-0.2.74-x86_64-unknown-linux-musl
+    RUN cargo install trunk
 
     RUN apt-get update && \
         apt-get install -y \
@@ -38,9 +33,9 @@ frontend-serve:
 backend-base:
     RUN rustup target add wasm32-unknown-unknown
 
-    RUN wget -q https://github.com/watchexec/cargo-watch/releases/download/v7.8.0/cargo-watch-v7.8.0-x86_64-unknown-linux-gnu.deb && \
-        dpkg -i cargo-watch-v7.8.0-x86_64-unknown-linux-gnu.deb && \
-        rm cargo-watch-v7.8.0-x86_64-unknown-linux-gnu.deb
+    RUN wget -O cargo-watch.deb -q https://github.com/watchexec/cargo-watch/releases/download/v8.1.2/cargo-watch-v8.1.2-aarch64-unknown-linux-gnu.deb  && \
+        dpkg -i cargo-watch.deb && \
+        rm cargo-watch.deb
 
     SAVE IMAGE backend-base
 
@@ -122,7 +117,7 @@ serve-docker:
     END
 
 route-database:
-    FROM ubuntu:20.10
+    FROM ubuntu:22.04
 
     RUN apt-get update && \
         apt-get install -y \
