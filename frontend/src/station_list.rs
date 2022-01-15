@@ -1,30 +1,18 @@
 use crate::context::host;
-use anyhow::Error;
-use log::error;
 use train_schedules_common::*;
-use wasm_bindgen_futures::spawn_local;
 use yew::prelude::*;
 
 #[derive(Properties, Clone, PartialEq, Default)]
 pub struct Properties {
-    pub start_station_id: Option<i32>,
+    pub start_station_id: Option<i64>,
 }
 
 #[function_component(StationList)]
 pub fn station_list(props: &Properties) -> Html {
-    let stations = use_state_eq::<Vec<Station>, _>(|| Vec::new());
-    let stations_fetch = stations.clone();
+    let stations = use_state_eq::<Vec<Station>, _>(Vec::new);
 
     let host = host();
-
-    spawn_local(async move {
-        match fetch_stations(&host).await {
-            Ok(stations) => stations_fetch.set(stations),
-            Err(e) => {
-                error!("failed to fetch station list: {}", e);
-            }
-        };
-    });
+    crate::fetch::fetch(format!("{host}/api/stations"), stations.clone());
 
     let start_station_name = props.start_station_id.and_then(|start_station_id| {
         stations
@@ -57,13 +45,13 @@ pub fn station_list(props: &Properties) -> Html {
     }
 }
 
-fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html {
+fn view_station(station: &Station, start_station_id: &Option<i64>) -> Html {
     match start_station_id {
         Some(start_station_id) if *start_station_id == station.station_id => {
             html! {}
         }
         Some(start_station_id) => {
-            let href = format!("/c/{}/{}", start_station_id, station.station_id);
+            let href = format!("/c/station/{}/{}", start_station_id, station.station_id);
 
             html! {
                 <li>
@@ -72,7 +60,7 @@ fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html {
             }
         }
         None => {
-            let href = format!("/c/{}", station.station_id);
+            let href = format!("/c/station/{}", station.station_id);
 
             html! {
                 <li>
@@ -81,13 +69,4 @@ fn view_station(station: &Station, start_station_id: &Option<i32>) -> Html {
             }
         }
     }
-}
-
-async fn fetch_stations(host: &str) -> Result<Vec<Station>, Error> {
-    let response = reqwest::get(format!("{host}/api/stations")).await?;
-
-    let body = response.text().await?;
-    let list = serde_json::from_str(&body)?;
-
-    Ok(list)
 }

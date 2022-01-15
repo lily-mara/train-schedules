@@ -5,25 +5,25 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("failed to parse int")]
-    ParseIntError(#[from] std::num::ParseIntError),
+    ParseInt(#[from] std::num::ParseIntError),
 
     #[error("error talking to SQL database")]
-    SqlError(#[from] sqlite::Error),
+    Sql(#[from] sqlite::Error),
 
     #[error("error deserializing JSON")]
-    JsonError(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 
     #[error("error sending HTTP request")]
-    HttpError(#[from] actix_web::client::SendRequestError),
+    Http(#[from] actix_web::client::SendRequestError),
 
     #[error("Got bad response from 501 API server. Code={code}, Body={body}")]
-    FiveOneOneServerError { code: StatusCode, body: String },
+    FiveOneOneServer { code: StatusCode, body: String },
 
     #[error("error receiving HTTP response payload")]
-    HttpJsonError(#[from] actix_web::client::PayloadError),
+    HttpJson(#[from] actix_web::client::PayloadError),
 
     #[error("error reading file")]
-    FileIOError(std::io::Error),
+    File(std::io::Error),
 
     #[error("No station found with ID: {0}")]
     NoSuchStation(i64),

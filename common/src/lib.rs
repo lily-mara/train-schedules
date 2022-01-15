@@ -12,7 +12,7 @@ pub struct TripList {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct Station {
     pub name: String,
-    pub station_id: i32,
+    pub station_id: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -29,7 +29,7 @@ pub struct Time {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Trip {
-    pub trip_id: i32,
+    pub trip_id: i64,
     pub start: Departure,
     pub end: Departure,
 }
@@ -63,4 +63,17 @@ pub fn time_str(minute: i64) -> String {
     let min = minute % 60;
 
     format!("{:02}:{:02}", hour, min)
+}
+
+#[derive(Serialize, Deserialize, PartialEq)]
+pub struct IndividualTrip {
+    pub id: i64,
+    pub stations: Vec<IndividualStation>,
+}
+
+#[derive(Serialize, Deserialize, PartialEq)]
+pub struct IndividualStation {
+    pub id: i64,
+    pub name: String,
+    pub departure: Departure,
 }

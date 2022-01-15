@@ -4,10 +4,12 @@ use crate::context::Context;
 use log::Level;
 
 mod context;
+mod fetch;
 mod router;
 mod station_list;
 mod time;
 mod time_display;
+mod train_view;
 mod trip_display;
 mod trip_list;
 

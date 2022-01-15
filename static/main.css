@@ -24,7 +24,7 @@ body {
   }
 }
 
-.TripDisplay .TrainID {
+.TrainID {
   border-radius: 5px;
   padding: 5px;
   float: none;
@@ -55,4 +55,8 @@ body {
 
 .TimeDisplay--realtime {
   color: blue;
+}
+
+.TrainView--timePast {
+  color: grey;
 }

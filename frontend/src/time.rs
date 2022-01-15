@@ -19,3 +19,7 @@ pub fn local_offset() -> FixedOffset {
 
     FixedOffset::west(offset * 60)
 }
+
+pub fn local(dt: DateTime<FixedOffset>) -> DateTime<FixedOffset> {
+    dt.with_timezone(&local_offset())
+}

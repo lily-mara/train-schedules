@@ -4,6 +4,7 @@ use actix_web::{
     client::Client, http::StatusCode, web, App, HttpRequest, HttpResponse, HttpServer, Responder,
 };
 use chrono::{prelude::*, Weekday};
+use chrono_tz::US::Pacific;
 use log::*;
 use serde::Deserialize;
 use std::{collections::HashMap, env};
@@ -16,6 +17,11 @@ mod types;
 struct UpcomingTripsQuery {
     start: i64,
     end: i64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct TripQuery {
+    id: i64,
 }
 
 struct AppState {
@@ -45,6 +51,7 @@ async fn main() {
             })
             .route("/api/stations", web::get().to(stations))
             .route("/api/upcoming-trips", web::get().to(upcoming_trips))
+            .route("/api/trip", web::get().to(trip))
             .route("/", web::get().to(index))
             .service(Files::new("/", "/var/www/"))
             .default_service(web::route().to(index))
@@ -57,7 +64,7 @@ async fn main() {
 }
 
 async fn index() -> Result<NamedFile> {
-    Ok(NamedFile::open("/var/www/index.html").map_err(Error::FileIOError)?)
+    Ok(NamedFile::open("/var/www/index.html").map_err(Error::File)?)
 }
 
 fn get_trip_ids_that_hit_stations(
@@ -108,7 +115,7 @@ fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<Stat
     match stmt.next()? {
         sqlite::State::Row => Ok(Station {
             name: stmt.read(0)?,
-            station_id: stmt.read::<i64>(1)? as i32,
+            station_id: stmt.read::<i64>(1)?,
         }),
         sqlite::State::Done => Err(Error::NoSuchStation(station_id)),
     }
@@ -128,7 +135,7 @@ fn load_all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
     while let sqlite::State::Row = stmt.next()? {
         stations.push(Station {
             name: stmt.read(0)?,
-            station_id: stmt.read::<i64>(1)? as i32,
+            station_id: stmt.read::<i64>(1)?,
         });
     }
 
@@ -185,7 +192,7 @@ fn get_upcoming_trips(
                 continue;
             }
 
-            let trip_id = stmt.read::<i64>(3)? as i32;
+            let trip_id = stmt.read::<i64>(3)?;
 
             trips.entry(trip_id).or_insert_with(HashMap::new).insert(
                 station_name,
@@ -238,20 +245,24 @@ fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
     let minute = parts.next().unwrap().parse()?;
     let second = parts.next().unwrap().parse()?;
 
-    let time = Local::today().and_hms(hour, minute, second) + chrono::Duration::days(add_days);
+    let time = Pacific
+        .from_utc_datetime(&Utc::now().naive_utc())
+        .date()
+        .and_hms(hour, minute, second)
+        + chrono::Duration::days(add_days);
 
-    Ok(time.with_timezone(&time.offset()))
+    Ok(time.with_timezone(&FixedOffset::west(0)))
 }
 
 fn to_local_time(time: DateTime<FixedOffset>) -> DateTime<FixedOffset> {
-    time.with_timezone(&Local::now().offset())
+    time.with_timezone(Local::now().offset())
 }
 
 async fn get_station_estimated_stuff(
     client: &Client,
     api_key: &str,
-    station_id: i32,
-) -> Result<HashMap<i32, (DateTime<FixedOffset>, DateTime<FixedOffset>)>> {
+    station_id: i64,
+) -> Result<HashMap<i64, (DateTime<FixedOffset>, DateTime<FixedOffset>)>> {
     let url = format!(
         "https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json&stopCode={stop_code}",
         api_key=api_key,
@@ -264,7 +275,7 @@ async fn get_station_estimated_stuff(
 
     if response.status() != StatusCode::OK {
         let body = String::from_utf8_lossy(&body).into_owned();
-        return Err(Error::FiveOneOneServerError {
+        return Err(Error::FiveOneOneServer {
             code: response.status(),
             body,
         });
@@ -311,8 +322,8 @@ async fn add_live_status(client: &Client, api_key: &str, trips: &mut TripList) -
     let end = trips.end.station_id;
 
     let (start_data, end_data) = futures::try_join!(
-        get_station_estimated_stuff(client, &api_key, start),
-        get_station_estimated_stuff(client, &api_key, end)
+        get_station_estimated_stuff(client, api_key, start),
+        get_station_estimated_stuff(client, api_key, end)
     )?;
 
     for trip in &mut trips.trips {
@@ -364,6 +375,59 @@ fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>
     }
 
     Ok(ids)
+}
+
+fn get_trip(connection: &sqlite::Connection, trip_id: i64) -> Result<IndividualTrip> {
+    let mut stmt = connection.prepare(
+        "
+        select distinct stop_name, station_id, departure_time, arrival_time, stop_times.trip_id
+        from stop_times
+        join trips on trips.trip_id=stop_times.trip_id
+        join stops on stop_times.stop_id = stops.stop_id
+        where
+            stop_times.trip_id = ?
+        ",
+    )?;
+
+    stmt.bind(1, trip_id)?;
+
+    let mut stations = Vec::new();
+
+    while let sqlite::State::Row = stmt.next()? {
+        let station_name: String = stmt.read(0)?;
+
+        let station_id: i64 = stmt.read(1)?;
+
+        let departure_str: String = stmt.read(2)?;
+        let departure = parse_time(&departure_str)?;
+
+        let arrival_str: String = stmt.read(3)?;
+        let arrival = parse_time(&arrival_str)?;
+
+        stations.push(IndividualStation {
+            id: station_id,
+            name: station_name,
+            departure: Departure {
+                arrival: Time::new(arrival),
+                departure: Time::new(departure),
+            },
+        })
+    }
+
+    Ok(IndividualTrip {
+        id: trip_id,
+        stations,
+    })
+}
+
+async fn trip(query: web::Query<TripQuery>, data: web::Data<AppState>) -> Result<HttpResponse> {
+    let trip = get_trip(&data.connection, query.id)?;
+
+    // if let Err(e) = add_live_status(&data.client, &data.api_key, &mut trips).await {
+    //     error!("Error adding realtime status to trips: {:?}", e.chain());
+    // }
+
+    Ok(HttpResponse::Ok().json(trip))
 }
 
 async fn upcoming_trips(
