@@ -1,6 +1,5 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::ops::Deref;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub struct TwoStopList {
@@ -15,41 +14,11 @@ pub struct Station {
     pub station_id: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub struct Time {
-    pub scheduled: DateTime<FixedOffset>,
-    pub estimated: Option<DateTime<FixedOffset>>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TwoStop {
     pub trip_id: i64,
     pub start: Stop,
     pub end: Stop,
-}
-
-impl Time {
-    pub fn new(scheduled: DateTime<FixedOffset>) -> Self {
-        Self {
-            scheduled,
-            estimated: None,
-        }
-    }
-
-    pub fn is_live(&self) -> bool {
-        self.estimated.is_some()
-    }
-}
-
-impl Deref for Time {
-    type Target = DateTime<FixedOffset>;
-
-    fn deref(&self) -> &Self::Target {
-        match &self.estimated {
-            Some(e) => e,
-            None => &self.scheduled,
-        }
-    }
 }
 
 pub fn time_str(minute: i64) -> String {
@@ -70,6 +39,6 @@ pub struct Stop {
     pub station_id: i64,
     pub trip_id: i64,
     pub station_name: String,
-    pub arrival: Time,
-    pub departure: Time,
+    pub arrival: DateTime<FixedOffset>,
+    pub departure: DateTime<FixedOffset>,
 }

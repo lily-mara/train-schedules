@@ -16,9 +16,9 @@ pub fn view(props: &TwostopProperties) -> Html {
     let twostop = &props.twostop;
 
     let now = time::now();
-    let time_to_departure = (*twostop.start.departure - now).num_minutes();
+    let time_to_departure = (twostop.start.departure - now).num_minutes();
 
-    let transit_time = (*twostop.end.arrival - *twostop.start.departure)
+    let transit_time = (twostop.end.arrival - twostop.start.departure)
         .num_minutes()
         .abs();
 
@@ -26,8 +26,8 @@ pub fn view(props: &TwostopProperties) -> Html {
         <div class={ classes!("TripDisplay") }>
             <TripId id={ twostop.trip_id } />
             <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
-            <div class="DepartTime">{"Departing "}<TimeDisplay time={ twostop.start.departure } /></div>
-            <div class="ArrivalTime">{"Arriving "}<TimeDisplay time={ twostop.end.arrival } /></div>
+            <div class="DepartTime">{"Departing "}<TimeDisplay scheduled={ twostop.start.departure } /></div>
+            <div class="ArrivalTime">{"Arriving "}<TimeDisplay scheduled={ twostop.end.arrival } /></div>
             <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
         </div>
     }

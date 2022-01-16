@@ -1,11 +1,11 @@
 use crate::time::{self, local};
 use chrono::prelude::*;
-use train_schedules_common::*;
 use yew::prelude::*;
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct Properties {
-    pub time: Time,
+    pub scheduled: DateTime<FixedOffset>,
+    pub live: Option<DateTime<FixedOffset>>,
 
     #[prop_or_default]
     pub now: Option<DateTime<FixedOffset>>,
@@ -14,10 +14,8 @@ pub struct Properties {
 impl Default for Properties {
     fn default() -> Self {
         Self {
-            time: Time {
-                scheduled: time::now(),
-                estimated: None,
-            },
+            scheduled: time::now(),
+            live: None,
             now: None,
         }
     }
@@ -25,18 +23,18 @@ impl Default for Properties {
 
 #[function_component(TimeDisplay)]
 pub fn time_display(props: &Properties) -> Html {
-    let scheduled = local(props.time.scheduled);
-    let estimated = props.time.estimated.map(local);
+    let scheduled = local(props.scheduled);
+    let live = props.live.map(local);
 
-    let formatted = estimated.unwrap_or(scheduled).format("%l:%M %p");
+    let formatted = live.unwrap_or(scheduled).format("%l:%M %p");
 
-    let title = if estimated.is_some() {
+    let title = if live.is_some() {
         format!("Scheduled for {}", scheduled.format("%l:%M %p"))
     } else {
         String::from("")
     };
 
-    let time_display_relative = if props.time.is_live() {
+    let time_display_relative = if live.is_some() {
         Some("TimeDisplay--realtime")
     } else {
         None
@@ -45,7 +43,7 @@ pub fn time_display(props: &Properties) -> Html {
     html! {
         <span class={ classes!("TimeDisplay", time_display_relative) } { title }>
         { format!("{}", formatted) }
-        { date_diff_tooltip(estimated.unwrap_or(scheduled), props.now.unwrap_or_else(time::now)) }
+        { date_diff_tooltip(live.unwrap_or(scheduled), props.now.unwrap_or_else(time::now)) }
         </span>
     }
 }

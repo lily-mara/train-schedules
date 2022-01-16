@@ -1,6 +1,6 @@
 use crate::{time::now, time_display::TimeDisplay, twostop::TripId};
-use chrono::Duration;
-use train_schedules_common::{Time, Trip};
+use chrono::{DateTime, Duration, FixedOffset};
+use train_schedules_common::Trip;
 use yew::{function_component, html, use_state_eq, Properties};
 
 use crate::context::host;
@@ -29,7 +29,7 @@ pub fn train_view(props: &Props) -> Html {
             <ul>
             { for trip.stops.iter().map(|s| html!{
                 <li class={ time_class(s.departure) }>
-                    <TimeDisplay time={ s.departure } />
+                    <TimeDisplay scheduled={ s.departure } />
                     <div class="TripView-box"></div>
                     <a href={format!("/c/station/{}", s.station_id)}>
                         { &s.station_name }
@@ -41,13 +41,8 @@ pub fn train_view(props: &Props) -> Html {
     }
 }
 
-fn time_class(time: Time) -> &'static str {
-    if time
-        .estimated
-        .unwrap_or(time.scheduled)
-        .signed_duration_since(now())
-        > Duration::seconds(0)
-    {
+fn time_class(time: DateTime<FixedOffset>) -> &'static str {
+    if time.signed_duration_since(now()) > Duration::seconds(0) {
         ""
     } else {
         "TrainView--timePast"
