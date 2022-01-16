@@ -60,3 +60,38 @@ body {
 .TrainView--timePast {
   color: grey;
 }
+
+.TripView li {
+  list-style: none;
+  margin-bottom: 1em;
+}
+
+.TrainView--timePast .TripView-box {
+  background-color: grey;
+}
+
+.TrainView--timePast .TripView-box::before {
+  background-color: grey;
+}
+
+.TripView-box {
+  background-color: rgb(197, 93, 111);
+  width: 30px;
+  height: 5px;
+  margin-left: 5px;
+  margin-right: 5px;
+  display: inline-block;
+  border-radius: 2.5px;
+}
+
+.TripView-box::before {
+  content: " ";
+  position: absolute;
+  display: block;
+  background-color: rgb(197, 93, 111);
+  width: 5px;
+  height: 2.5em;
+  border-radius: 2.5px;
+  margin-left: 12.5px;
+  z-index: 9;
+}

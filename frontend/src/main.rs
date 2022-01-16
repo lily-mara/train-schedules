@@ -9,6 +9,7 @@ mod router;
 mod station_list;
 mod time;
 mod time_display;
+mod timer;
 mod trip_view;
 mod twostop;
 mod twostop_list;

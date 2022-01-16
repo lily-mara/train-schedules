@@ -1,5 +1,6 @@
+use std::time::Duration;
+
 use crate::{time, time_display::TimeDisplay};
-use gloo::timers::callback::Interval;
 use train_schedules_common::*;
 use yew::prelude::*;
 
@@ -10,12 +11,7 @@ pub struct TwostopProperties {
 
 #[function_component(Twostop)]
 pub fn view(props: &TwostopProperties) -> Html {
-    let updater = use_state(|| ());
-    let _interval = use_state(|| {
-        Interval::new(30_000, move || {
-            updater.set(());
-        })
-    });
+    let _refresher = crate::timer::refresh_periodically(Duration::from_secs(30));
 
     let twostop = &props.twostop;
 

@@ -12,6 +12,7 @@ pub struct Props {
 
 #[function_component(TripView)]
 pub fn train_view(props: &Props) -> Html {
+    let _refresher = crate::timer::refresh_periodically(std::time::Duration::from_secs(30));
     let trip = use_state_eq(|| Trip {
         trip_id: props.trip_id,
         stops: Vec::new(),
@@ -22,13 +23,14 @@ pub fn train_view(props: &Props) -> Html {
     crate::fetch::fetch(format!("{host}/api/trip?id={trip_id}"), trip.clone());
 
     html! {
-        <div>
+        <div class="TripView">
             <h1><TripId id={ props.trip_id } /></h1>
 
             <ul>
             { for trip.stops.iter().map(|s| html!{
                 <li class={ time_class(s.departure) }>
                     <TimeDisplay time={ s.departure } />
+                    <div class="TripView-box"></div>
                     <a href={format!("/c/station/{}", s.station_id)}>
                         { &s.station_name }
                     </a>
