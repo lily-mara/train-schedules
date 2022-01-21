@@ -1,4 +1,4 @@
-FROM rust:1.58-bullseye
+FROM rust:1.58.1
 
 chef:
     RUN cargo install cargo-chef
@@ -33,7 +33,7 @@ frontend-serve:
 backend-base:
     RUN rustup target add wasm32-unknown-unknown
 
-    RUN wget -O cargo-watch.deb -q https://github.com/watchexec/cargo-watch/releases/download/v8.1.2/cargo-watch-v8.1.2-aarch64-unknown-linux-gnu.deb  && \
+    RUN wget -O cargo-watch.deb -q https://github.com/watchexec/cargo-watch/releases/download/v8.1.2/cargo-watch-v8.1.2-x86_64-unknown-linux-gnu.deb  && \
         dpkg -i cargo-watch.deb && \
         rm cargo-watch.deb
 
@@ -53,8 +53,10 @@ backend-serve:
     END
 
 serve:
-    BUILD +backend-serve
-    BUILD +frontend-serve
+    LOCALLY
+    WITH DOCKER --load=+backend-dev-server-image --load=+frontend-base
+    RUN docker-compose up backend frontend
+    END
 
 backend-build:
     FROM +backend-base
@@ -92,7 +94,7 @@ frontend-build:
     SAVE ARTIFACT dist
 
 docker:
-    FROM ubuntu:20.10
+    FROM ubuntu:22.04
 
     RUN apt-get update && \
         apt-get install -y \
@@ -137,4 +139,4 @@ deploy:
     LOCALLY
     RUN earthly --push +docker
 
-    RUN caprover deploy --default
+    RUN caprover deploy --default --imageName=lilymara/train-schedules:$(git rev-parse HEAD)
