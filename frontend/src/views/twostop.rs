@@ -7,6 +7,8 @@ use yew::prelude::*;
 #[derive(Properties, Clone, PartialEq)]
 pub struct TwostopProperties {
     pub twostop: TwoStop,
+    pub start_live: Option<Stop>,
+    pub end_live: Option<Stop>,
 }
 
 #[function_component(Twostop)]
@@ -22,12 +24,15 @@ pub fn view(props: &TwostopProperties) -> Html {
         .num_minutes()
         .abs();
 
+    let depart_live = props.start_live.as_ref().map(|s| s.departure);
+    let arrival_live = props.end_live.as_ref().map(|s| s.arrival);
+
     html! {
         <div class={ classes!("TripDisplay") }>
             <TripId id={ twostop.trip_id } />
             <div class="MinsToDepart">{ format!("{} min.", time_to_departure) }</div>
-            <div class="DepartTime">{"Departing "}<TimeDisplay scheduled={ twostop.start.departure } /></div>
-            <div class="ArrivalTime">{"Arriving "}<TimeDisplay scheduled={ twostop.end.arrival } /></div>
+            <div class="DepartTime">{"Departing "}<TimeDisplay scheduled={ twostop.start.departure } live={depart_live} /></div>
+            <div class="ArrivalTime">{"Arriving "}<TimeDisplay scheduled={ twostop.end.arrival } live={arrival_live} /></div>
             <div class="TransitTime">{ format!("{} min. in transit", transit_time) }</div>
         </div>
     }

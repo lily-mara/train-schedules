@@ -5,6 +5,7 @@ use log::Level;
 
 mod context;
 mod fetch;
+mod live_status;
 mod time;
 mod timer;
 mod views;

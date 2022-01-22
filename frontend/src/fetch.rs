@@ -1,7 +1,25 @@
+use gloo::timers::callback::Interval;
 use log::error;
 use serde::de::DeserializeOwned;
 use wasm_bindgen_futures::spawn_local;
-use yew::UseStateHandle;
+use yew::{use_state, UseStateHandle};
+
+pub fn fetch_repeating_interval<T>(
+    url: String,
+    container: UseStateHandle<T>,
+    interval: std::time::Duration,
+) -> UseStateHandle<Interval>
+where
+    T: 'static + DeserializeOwned,
+{
+    fetch(url.clone(), container.clone());
+
+    use_state(|| {
+        Interval::new(interval.as_millis() as u32, move || {
+            fetch(url.clone(), container.clone());
+        })
+    })
+}
 
 pub fn fetch<T>(url: String, container: UseStateHandle<T>)
 where

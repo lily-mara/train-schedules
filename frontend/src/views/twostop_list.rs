@@ -1,6 +1,6 @@
 use crate::context::host;
+use crate::live_status::live_status;
 use crate::views::twostop::Twostop;
-use gloo::timers::callback::Interval;
 use serde::Serialize;
 use train_schedules_common::*;
 use yew::prelude::*;
@@ -17,19 +17,18 @@ pub fn view(props: &TwostopListProps) -> Html {
     let twostops = use_state_eq(TwoStopList::default);
     let host = host();
 
-    let url = format!(
-        "{host}/api/upcoming-trips?start={}&end={}",
-        props.start, props.end
+    let start_live = live_status(&host, props.start);
+    let end_live = live_status(&host, props.end);
+
+    crate::fetch::fetch(
+        format!(
+            "{host}/api/upcoming-trips?start={}&end={}",
+            props.start, props.end
+        ),
+        twostops.clone(),
     );
 
-    crate::fetch::fetch(url.clone(), twostops.clone());
-
-    let trip_list_interval = twostops.clone();
-    let _interval = use_state(|| {
-        Interval::new(60_000, move || {
-            crate::fetch::fetch(url.clone(), trip_list_interval.clone());
-        })
-    });
+    // TODO: hide twostops that already completed with some kind of time filtering and interval
 
     if twostops.trips.is_empty() {
         return html! {
@@ -51,8 +50,14 @@ pub fn view(props: &TwostopListProps) -> Html {
                     {"Change Direction"}
                 </a>
             </h3>
-            { for twostops.trips.iter().map(|twostop| html! {
-                <Twostop twostop={twostop.clone()} />
+            { for twostops.trips.iter().map(|twostop| {
+                let twostop = twostop.clone();
+                let start_live = start_live.trip(twostop.trip_id);
+                let end_live = end_live.trip(twostop.trip_id);
+
+                html! {
+                    <Twostop {twostop} {start_live} {end_live} />
+                }
             })}
         </div>
     }
