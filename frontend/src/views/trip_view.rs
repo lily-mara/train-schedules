@@ -26,7 +26,7 @@ pub fn train_view(props: &Props) -> Html {
 
     let live = live_status(&host);
 
-    crate::fetch::fetch(format!("{host}/api/trip?id={trip_id}"), trip.clone());
+    crate::fetch::fetch_once(format!("{host}/api/trip?id={trip_id}"), trip.clone());
 
     html! {
         <div class="TripView">
