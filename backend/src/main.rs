@@ -55,7 +55,7 @@ async fn main() {
             )
             .route(
                 "/api/upcoming-trips",
-                web::get().to(crate::routes::twostops::upcoming_trips),
+                web::get().to(crate::routes::upcoming::upcoming_trips),
             )
             .route("/api/trip", web::get().to(crate::routes::trip::trip))
             .route("/", web::get().to(index))

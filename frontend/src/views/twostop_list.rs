@@ -1,7 +1,6 @@
 use crate::context::host;
 use crate::live_status::live_status;
-use crate::views::twostop::Twostop;
-use log::info;
+use crate::views::{station_list::StationFilterList, twostop::Twostop};
 use serde::Serialize;
 use train_schedules_common::*;
 use yew::prelude::*;
@@ -17,6 +16,10 @@ pub struct TwostopListProps {
 pub fn view(props: &TwostopListProps) -> Html {
     let twostops = use_state_eq(TwoStopList::default);
     let host = host();
+
+    let stations = use_state_eq::<Vec<Station>, _>(Vec::new);
+
+    crate::fetch::fetch(format!("{host}/api/stations"), stations.clone());
 
     let live = live_status(&host);
 
@@ -43,14 +46,15 @@ pub fn view(props: &TwostopListProps) -> Html {
 
     html! {
         <div class="TripList">
-            <h1>{ "Upcoming trains" }</h1>
-            <h2>{ format!("{} → {}", twostops.start.name, twostops.end.name) } </h2>
-            <h3>
+            <h1>
+                {twostops.start.name.clone()}
                 <a classes="DirectionFlip" href={flipped_url}>
-                    {"Change Direction"}
+                    {"→"}
                 </a>
-            </h3>
-            { for twostops.trips.iter().map(|twostop| {
+                {twostops.end.name.clone()}
+            </h1>
+            <h2>{ "Next 5 trips" }</h2>
+            { for twostops.trips.iter().take(5).map(|twostop| {
                 let twostop = twostop.clone();
                 let start_live = live.get(twostop.start.station_id, twostop.trip_id);
                 let end_live = live.get(twostop.end.station_id, twostop.trip_id);
@@ -59,6 +63,9 @@ pub fn view(props: &TwostopListProps) -> Html {
                     <Twostop {twostop} {start_live} {end_live} />
                 }
             })}
+
+            <h2>{ "Filter by ending station" }</h2>
+            <StationFilterList start_station_id={props.start} stations={(*stations).clone()} />
         </div>
     }
 }

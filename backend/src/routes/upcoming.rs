@@ -4,21 +4,63 @@ use crate::{error::Error, read_stops, AppState, Result};
 use actix_web::{web, HttpResponse};
 use chrono::{Datelike, FixedOffset, Local, Weekday};
 use serde::Deserialize;
-use train_schedules_common::{Station, TwoStop, TwoStopList};
+use train_schedules_common::{Station, Stop, TwoStop, TwoStopList};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct UpcomingTripsQuery {
     start: i64,
-    end: i64,
+    end: Option<i64>,
 }
 
 pub async fn upcoming_trips(
     query: web::Query<UpcomingTripsQuery>,
     data: web::Data<AppState>,
 ) -> Result<HttpResponse> {
-    let twostops = get_twostops(data, query.start, query.end).await?;
+    match query.end {
+        Some(end) => Ok(HttpResponse::Ok().json(get_twostops(data, query.start, end).await?)),
+        None => Ok(HttpResponse::Ok().json(get_upcoming(data, query.start).await?)),
+    }
+}
 
-    Ok(HttpResponse::Ok().json(twostops))
+async fn get_upcoming(data: web::Data<AppState>, station_id: i64) -> Result<Vec<Stop>> {
+    let service_ids = get_active_service_ids(&data.connection)?;
+
+    let trip_ids = get_trip_ids_that_hit_station(&data.connection, station_id, &service_ids)?;
+
+    let mut stmt = data.connection.prepare(
+        "
+        select distinct stop_name, station_id, departure_time, arrival_time, stop_times.trip_id
+        from stop_times
+        join trips on trips.trip_id=stop_times.trip_id
+        join stops on stop_times.stop_id = stops.stop_id
+        where
+            stop_times.trip_id = ? and
+            station_id in (?)
+        ",
+    )?;
+
+    let now = Local::now().with_timezone(&FixedOffset::east(0));
+
+    let mut trips = Vec::new();
+
+    for id in trip_ids {
+        stmt.bind(1, id)?;
+        stmt.bind(2, station_id)?;
+
+        for stop in read_stops(&mut stmt)? {
+            if stop.departure < now || stop.arrival < now {
+                continue;
+            }
+
+            trips.push(stop);
+        }
+
+        stmt.reset()?;
+    }
+
+    trips.sort_by(|a, b| a.departure.cmp(&b.departure));
+
+    Ok(trips)
 }
 
 async fn get_twostops(
@@ -161,6 +203,34 @@ pub fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<
         }),
         sqlite::State::Done => Err(Error::NoSuchStation(station_id)),
     }
+}
+
+fn get_trip_ids_that_hit_station(
+    connection: &sqlite::Connection,
+    station: i64,
+    service_ids: &[String],
+) -> Result<Vec<i64>> {
+    let mut statement = connection.prepare(
+        &format!("
+        select trip_id from stop_times join stops on stops.stop_id =stop_times.stop_id where station_id=?
+        intersect
+        select trip_id from trips where service_id in ({})
+        ",         bind_placeholders(service_ids.len())),
+    )?;
+
+    statement.bind(1, station)?;
+
+    for (idx, i) in service_ids.iter().enumerate() {
+        statement.bind(idx + 2, &sqlite::Value::String(i.clone()))?;
+    }
+
+    let mut trip_ids = Vec::new();
+
+    while let Ok(sqlite::State::Row) = statement.next() {
+        trip_ids.push(statement.read(0)?);
+    }
+
+    Ok(trip_ids)
 }
 
 fn get_trip_ids_that_hit_stations(
