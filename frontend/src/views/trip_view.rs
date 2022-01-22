@@ -1,4 +1,7 @@
-use crate::{time::now, time_display::TimeDisplay, twostop::TripId};
+use crate::{
+    time::now,
+    views::{time_display::TimeDisplay, twostop::TripId},
+};
 use chrono::{DateTime, Duration, FixedOffset};
 use train_schedules_common::Trip;
 use yew::{function_component, html, use_state_eq, Properties};

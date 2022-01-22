@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{time, time_display::TimeDisplay};
+use crate::{time, views::time_display::TimeDisplay};
 use train_schedules_common::*;
 use yew::prelude::*;
 

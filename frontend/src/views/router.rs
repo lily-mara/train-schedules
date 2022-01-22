@@ -1,4 +1,4 @@
-use crate::{context::Context, station_list, trip_view, twostop_list};
+use crate::{context::Context, views::*};
 use serde::{Deserialize, Serialize};
 use yew::prelude::*;
 use yew_router::prelude::*;

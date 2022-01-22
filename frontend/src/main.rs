@@ -5,14 +5,9 @@ use log::Level;
 
 mod context;
 mod fetch;
-mod router;
-mod station_list;
 mod time;
-mod time_display;
 mod timer;
-mod trip_view;
-mod twostop;
-mod twostop_list;
+mod views;
 
 fn main() {
     console_log::init_with_level(Level::Debug).unwrap();
@@ -27,7 +22,7 @@ fn main() {
         location.host().unwrap()
     );
 
-    yew::start_app_with_props_in_element::<router::Main>(
+    yew::start_app_with_props_in_element::<views::router::Main>(
         document.query_selector("#app-container").unwrap().unwrap(),
         Context { host },
     );

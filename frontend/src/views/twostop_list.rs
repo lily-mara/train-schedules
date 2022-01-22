@@ -1,5 +1,5 @@
 use crate::context::host;
-use crate::twostop::Twostop;
+use crate::views::twostop::Twostop;
 use gloo::timers::callback::Interval;
 use serde::Serialize;
 use train_schedules_common::*;
