@@ -48,9 +48,11 @@ pub fn view(props: &TwostopListProps) -> Html {
         <div class="TripList">
             <h1>
                 {twostops.start.name.clone()}
+                {" "}
                 <a classes="DirectionFlip" href={flipped_url}>
                     {"→"}
                 </a>
+                {" "}
                 {twostops.end.name.clone()}
             </h1>
             <h2>{ "Next 5 trips" }</h2>
