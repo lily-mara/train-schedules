@@ -1,26 +1,26 @@
 use crate::context::host;
 use crate::live_status::live_status;
 use crate::views::twostop::Twostop;
+use log::info;
 use serde::Serialize;
 use train_schedules_common::*;
 use yew::prelude::*;
 
-#[derive(Properties, Clone, Serialize, PartialEq)]
+#[derive(Properties, Clone, Serialize, PartialEq, Debug)]
 pub struct TwostopListProps {
     pub start: i64,
 
     pub end: i64,
 }
 
-#[function_component(Model)]
+#[function_component(TwostopList)]
 pub fn view(props: &TwostopListProps) -> Html {
     let twostops = use_state_eq(TwoStopList::default);
     let host = host();
 
-    let start_live = live_status(&host, props.start);
-    let end_live = live_status(&host, props.end);
+    let live = live_status(&host);
 
-    crate::fetch::fetch(
+    crate::fetch::fetch_once(
         format!(
             "{host}/api/upcoming-trips?start={}&end={}",
             props.start, props.end
@@ -52,8 +52,8 @@ pub fn view(props: &TwostopListProps) -> Html {
             </h3>
             { for twostops.trips.iter().map(|twostop| {
                 let twostop = twostop.clone();
-                let start_live = start_live.trip(twostop.trip_id);
-                let end_live = end_live.trip(twostop.trip_id);
+                let start_live = live.get(twostop.start.station_id, twostop.trip_id);
+                let end_live = live.get(twostop.end.station_id, twostop.trip_id);
 
                 html! {
                     <Twostop {twostop} {start_live} {end_live} />

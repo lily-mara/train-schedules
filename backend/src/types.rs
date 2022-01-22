@@ -33,4 +33,5 @@ pub struct MonitoredVehicleJourney {
 pub struct MonitoredCall {
     pub ExpectedArrivalTime: DateTime<FixedOffset>,
     pub ExpectedDepartureTime: DateTime<FixedOffset>,
+    pub StopPointRef: String,
 }

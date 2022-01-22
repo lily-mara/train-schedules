@@ -48,7 +48,7 @@ fn switch(route: &Route) -> Html {
         Route::StationListRoot => html! { <station_list::StationList start_station_id={None} /> },
         Route::Index => html! { <station_list::StationList start_station_id={None} /> },
         Route::Twostop { start, end } => {
-            html! { <twostop_list::Model start={*start} end={*end} /> }
+            html! { <twostop_list::TwostopList start={*start} end={*end} /> }
         }
         Route::Trip { trip_id } => html! { <trip_view::TripView trip_id={*trip_id} /> },
     }

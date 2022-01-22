@@ -6,20 +6,27 @@ use chrono_tz::US::Pacific;
 use log::*;
 use sqlite::Statement;
 use std::env;
+use tokio::sync::RwLock;
 use train_schedules_common::*;
+use ttl_cache::TtlCache;
 
 mod error;
 mod routes;
 mod types;
 
+type LiveStatusCache = RwLock<TtlCache<(), Vec<Stop>>>;
+
 pub struct AppState {
     pub connection: sqlite::Connection,
     pub client: Client,
     pub api_key: String,
+    pub live_status_cache: LiveStatusCache,
 }
 
 #[actix_rt::main]
 async fn main() {
+    let _ = dotenv::dotenv();
+
     color_backtrace::install();
     env_logger::init();
 
@@ -36,6 +43,7 @@ async fn main() {
                     .expect("Failed to connect to sqlite database"),
                 api_key: api_key.clone(),
                 client: Client::new(),
+                live_status_cache: RwLock::new(TtlCache::new(50)),
             })
             .route(
                 "/api/stations",

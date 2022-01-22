@@ -33,7 +33,7 @@ frontend-serve:
 backend-base:
     RUN rustup target add wasm32-unknown-unknown
 
-    RUN wget -O cargo-watch.deb -q https://github.com/watchexec/cargo-watch/releases/download/v8.1.2/cargo-watch-v8.1.2-x86_64-unknown-linux-gnu.deb  && \
+    RUN wget -O cargo-watch.deb -q https://github.com/watchexec/cargo-watch/releases/download/v8.1.2/cargo-watch-v8.1.2-$(uname -m)-unknown-linux-gnu.deb  && \
         dpkg -i cargo-watch.deb && \
         rm cargo-watch.deb
 

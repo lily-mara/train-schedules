@@ -9,6 +9,7 @@ services:
     environment:
       CARGO_TARGET_DIR: "/target"
       CARGO_HOME: "/cargo-home"
+      RUST_BACKTRACE: '1'
     env_file: backend/.env
     working_dir: "/code/backend"
     command: cargo watch -x run

@@ -1,4 +1,5 @@
 use crate::{
+    live_status::live_status,
     time::now,
     views::{time_display::TimeDisplay, twostop::TripId},
 };
@@ -23,6 +24,8 @@ pub fn train_view(props: &Props) -> Html {
     let host = host();
     let trip_id = props.trip_id;
 
+    let live = live_status(&host);
+
     crate::fetch::fetch(format!("{host}/api/trip?id={trip_id}"), trip.clone());
 
     html! {
@@ -30,14 +33,18 @@ pub fn train_view(props: &Props) -> Html {
             <h1><TripId id={ props.trip_id } /></h1>
 
             <ul>
-            { for trip.stops.iter().map(|s| html!{
-                <li class={ time_class(s.departure) }>
-                    <TimeDisplay scheduled={ s.departure } />
-                    <div class="TripView-box"></div>
-                    <a href={format!("/c/station/{}", s.station_id)}>
-                        { &s.station_name }
-                    </a>
-                </li>
+            { for trip.stops.iter().map(|s| {
+                let live = live.get(s.station_id, s.trip_id).map(|s| s.departure);
+
+                html!{
+                    <li class={ time_class(s.departure) }>
+                        <TimeDisplay scheduled={ s.departure } {live} />
+                        <div class="TripView-box"></div>
+                        <a href={format!("/c/station/{}", s.station_id)}>
+                            { &s.station_name }
+                        </a>
+                    </li>
+                }
             }) }
             </ul>
         </div>

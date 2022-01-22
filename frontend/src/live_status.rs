@@ -6,11 +6,11 @@ use yew::{use_state_eq, UseStateHandle};
 
 use crate::fetch::fetch_repeating_interval;
 
-pub fn live_status(host: &str, station_id: i64) -> LiveStatus {
+pub fn live_status(host: &str) -> LiveStatus {
     let stops = use_state_eq(Vec::new);
 
     let _interval = fetch_repeating_interval(
-        format!("{host}/api/stations/live?station_id={station_id}"),
+        format!("{host}/api/stations/live"),
         stops.clone(),
         Duration::from_secs(60),
     );
@@ -24,8 +24,11 @@ pub struct LiveStatus {
 }
 
 impl LiveStatus {
-    pub fn trip(&self, trip_id: i64) -> Option<Stop> {
-        self.stops.iter().find(|s| s.trip_id == trip_id).cloned()
+    pub fn get(&self, station_id: i64, trip_id: i64) -> Option<Stop> {
+        self.stops
+            .iter()
+            .find(|s| s.trip_id == trip_id && s.station_id == station_id)
+            .cloned()
     }
 
     pub fn all(&self) -> &[Stop] {

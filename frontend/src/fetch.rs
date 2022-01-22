@@ -12,13 +12,20 @@ pub fn fetch_repeating_interval<T>(
 where
     T: 'static + DeserializeOwned,
 {
-    fetch(url.clone(), container.clone());
+    fetch_once(url.clone(), container.clone());
 
     use_state(|| {
         Interval::new(interval.as_millis() as u32, move || {
             fetch(url.clone(), container.clone());
         })
     })
+}
+
+pub fn fetch_once<T>(url: String, container: UseStateHandle<T>)
+where
+    T: 'static + DeserializeOwned,
+{
+    use_state(|| fetch(url, container));
 }
 
 pub fn fetch<T>(url: String, container: UseStateHandle<T>)
