@@ -17,15 +17,16 @@ pub fn view(props: &TwostopProperties) -> Html {
 
     let twostop = &props.twostop;
 
-    let now = time::now();
-    let time_to_departure = (twostop.start.departure - now).num_minutes();
-
-    let transit_time = (twostop.end.arrival - twostop.start.departure)
-        .num_minutes()
-        .abs();
-
     let depart_live = props.start_live.as_ref().map(|s| s.departure);
     let arrival_live = props.end_live.as_ref().map(|s| s.arrival);
+
+    let depart = depart_live.unwrap_or(twostop.start.departure);
+    let arrive = arrival_live.unwrap_or(twostop.end.arrival);
+
+    let now = time::now();
+    let time_to_departure = (depart - now).num_minutes();
+
+    let transit_time = (arrive - depart).num_minutes().abs();
 
     html! {
         <div class={ classes!("TripDisplay") }>

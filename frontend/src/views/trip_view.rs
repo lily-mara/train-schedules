@@ -36,8 +36,10 @@ pub fn train_view(props: &Props) -> Html {
             { for trip.stops.iter().map(|s| {
                 let live = live.get(s.station_id, s.trip_id).map(|s| s.departure);
 
+                let time = live.unwrap_or(s.departure);
+
                 html!{
-                    <li class={ time_class(s.departure) }>
+                    <li class={ time_class(time) }>
                         <TimeDisplay scheduled={ s.departure } {live} />
                         <div class="TripView-box"></div>
                         <a href={format!("/c/station/{}", s.station_id)}>

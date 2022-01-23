@@ -44,7 +44,13 @@ pub struct UpcomingProps {
 #[function_component(Upcoming)]
 pub fn upcoming(props: &UpcomingProps) -> Html {
     let now = time::now();
-    let time_to_departure = (props.stop.departure - now).num_minutes();
+    let time_to_departure = (props
+        .live
+        .as_ref()
+        .map(|s| s.departure)
+        .unwrap_or(props.stop.departure)
+        - now)
+        .num_minutes();
     let live = props.live.as_ref().map(|s| s.departure);
 
     html! {
