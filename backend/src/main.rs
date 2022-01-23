@@ -74,24 +74,13 @@ async fn main() -> eyre::Result<()> {
         .and(state.clone())
         .and_then(crate::routes::live::live_station);
 
-    let index = warp::any().and(warp::filters::fs::file("/var/www/index.html"));
+    let index = warp::any().and(warp::filters::fs::dir("/var/www/"));
 
     let routes = warp::get()
         .and(index.or(stations).or(upcoming).or(trip).or(live))
         .recover(handle_rejection);
 
     warp::serve(routes).run(([0, 0, 0, 0], 8088)).await;
-
-    /*
-            .route(
-                "/api/stations/live",
-                web::get().to(crate::routes::live::live_station),
-            )
-
-        if let Ok(path) = &static_file_path {
-            app = app.service(Files::new("/", path));
-        }
-    */
 
     Ok(())
 }

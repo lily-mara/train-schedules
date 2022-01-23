@@ -51,12 +51,8 @@ async fn get_station_live_status(data: &AppState) -> Result<Vec<Stop>> {
         bail!("Received HTTP {status} from 511.org API: {body}");
     }
 
-    let resp: types::ApiResponse = serde_json::from_str(&body).wrap_err_with(|| {
-        format!(
-            "failed to parse 511.org API response as json. body: {}",
-            body
-        )
-    })?;
+    let resp: types::ApiResponse = serde_json::from_str(&body[3..])
+        .wrap_err_with(|| format!("failed to parse 511.org API response as json. body: {body}"))?;
 
     debug!("Parsed API response: {:?}", resp);
     let mut trips = Vec::new();
