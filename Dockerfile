@@ -14,4 +14,6 @@ EXPOSE 8088
 
 ENV STATIC_FILE_PATH=/var/www/
 
+RUN echo 'vm.overcommit_memory=1' >> /etc/sysctl.conf
+
 CMD /usr/bin/train-backend

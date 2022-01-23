@@ -12,11 +12,19 @@ bootstrap:
     rustup target add wasm32-unknown-unknown
     cd backend && ./new-db.sh
 
-deploy:
+dist:
     rm -rf dist
     cargo build --release -p train-backend
     trunk build --release
+
+deploy:
+    just dist
     flyctl deploy
+
+serve-docker:
+    just dist
+    docker build -t trains .
+    docker run --rm -it -eAPI_KEY=local -p8088:8088 trains
 
 clean:
     cargo clean
