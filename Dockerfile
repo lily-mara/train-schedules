@@ -9,4 +9,6 @@ COPY ./backend/schedules.db /var/
 COPY ./target/release/train-backend /usr/bin/train-backend
 COPY ./dist /var/www
 
+EXPOSE 8088
+
 CMD /usr/bin/train-backend
