@@ -4,7 +4,6 @@ use eyre::Context;
 use reqwest::Client;
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
-use tracing::info;
 use train_schedules_common::*;
 use ttl_cache::TtlCache;
 use warp::{query, Filter};
@@ -39,8 +38,6 @@ async fn main() -> eyre::Result<()> {
     let connection =
         sqlite::Connection::open(&db_path).wrap_err("failed to open sqlite connection")?;
 
-    info!(socket = "0.0.0.0:8088", "listening");
-
     let live_status_cache = Arc::new(RwLock::new(TtlCache::new(50)));
 
     let state = Arc::new(AppState {
@@ -74,10 +71,19 @@ async fn main() -> eyre::Result<()> {
         .and(state.clone())
         .and_then(crate::routes::live::live_station);
 
-    let index = warp::any().and(warp::filters::fs::dir("/var/www/"));
+    let static_files = warp::any().and(warp::filters::fs::dir("/var/www/"));
+
+    let spa = warp::path("c").and(warp::filters::fs::file("/var/www/index.html"));
 
     let routes = warp::get()
-        .and(index.or(stations).or(upcoming).or(trip).or(live))
+        .and(
+            static_files
+                .or(spa)
+                .or(stations)
+                .or(upcoming)
+                .or(trip)
+                .or(live),
+        )
         .recover(handle_rejection);
 
     warp::serve(routes).run(([0, 0, 0, 0], 8088)).await;

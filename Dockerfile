@@ -3,6 +3,7 @@ FROM ubuntu:22.04
 RUN apt-get update && \
     apt-get install -y \
     sqlite3 \
+    libssl1.1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./backend/schedules.db /var/
