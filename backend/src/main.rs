@@ -3,6 +3,7 @@ use actix_files::{Files, NamedFile};
 use actix_web::{client::Client, web, App, HttpServer};
 use chrono::prelude::*;
 use chrono_tz::US::Pacific;
+use eyre::Context;
 use log::*;
 use sqlite::Statement;
 use std::env;
@@ -24,14 +25,20 @@ pub struct AppState {
 }
 
 #[actix_rt::main]
-async fn main() {
+async fn main() -> eyre::Result<()> {
     let _ = dotenv::dotenv();
 
     color_backtrace::install();
     env_logger::init();
 
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "/var/schedules.db".to_owned());
-    let api_key = env::var("API_KEY").expect("API_KEY environment variable is required");
+    let api_key = env::var("API_KEY").wrap_err("API_KEY environment variable is required")?;
+
+    let connection =
+        sqlite::Connection::open(&db_path).wrap_err("failed to open sqlite connection")?;
+    connection
+        .execute("select 1")
+        .wrap_err("failed to execute sqlite test command")?;
 
     info!("Listening on 0.0.0.0:8088");
 
@@ -39,8 +46,7 @@ async fn main() {
         debug!("Opening sqlite connection: {}", db_path);
         App::new()
             .data(AppState {
-                connection: sqlite::Connection::open(&db_path)
-                    .expect("Failed to connect to sqlite database"),
+                connection: sqlite::Connection::open(&db_path).unwrap(),
                 api_key: api_key.clone(),
                 client: Client::new(),
                 live_status_cache: RwLock::new(TtlCache::new(50)),
@@ -66,7 +72,9 @@ async fn main() {
     .unwrap()
     .run()
     .await
-    .expect("Failed to run server");
+    .wrap_err("Failed to run server")?;
+
+    Ok(())
 }
 
 async fn index() -> Result<NamedFile> {
