@@ -2626,7 +2626,6 @@ dependencies = [
  "actix-files",
  "actix-rt",
  "actix-web",
- "anyhow",
  "auto_from",
  "chrono",
  "chrono-tz",

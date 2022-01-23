@@ -1,4 +1,4 @@
-use crate::{read_stops, AppState, Result};
+use crate::{error::HttpResult, read_stops, AppState, Result};
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
 use train_schedules_common::Trip;
@@ -8,7 +8,10 @@ pub struct TripQuery {
     id: i64,
 }
 
-pub async fn trip(query: web::Query<TripQuery>, data: web::Data<AppState>) -> Result<HttpResponse> {
+pub async fn trip(
+    query: web::Query<TripQuery>,
+    data: web::Data<AppState>,
+) -> HttpResult<HttpResponse> {
     let trip = get_trip(&data.connection, query.id)?;
 
     Ok(HttpResponse::Ok().json(trip))

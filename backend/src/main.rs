@@ -1,4 +1,4 @@
-use crate::error::{Error, Result};
+use crate::error::{HttpResult, Result};
 use actix_files::{Files, NamedFile};
 use actix_web::{client::Client, web, App, HttpServer};
 use chrono::prelude::*;
@@ -77,22 +77,35 @@ async fn main() -> eyre::Result<()> {
     Ok(())
 }
 
-async fn index() -> Result<NamedFile> {
-    Ok(NamedFile::open("/var/www/index.html").map_err(Error::File)?)
+async fn index() -> HttpResult<NamedFile> {
+    Ok(NamedFile::open("/var/www/index.html").wrap_err("failed to read index")?)
 }
 
 fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
     let mut parts = time.split(':');
 
     let mut add_days = 0;
-    let mut hour = parts.next().unwrap().parse()?;
+    let mut hour = parts
+        .next()
+        .unwrap()
+        .parse()
+        .wrap_err_with(|| format!("failed to parse hour part from time value {time}"))?;
+
     while hour >= 24 {
         hour -= 24;
         add_days += 1;
     }
 
-    let minute = parts.next().unwrap().parse()?;
-    let second = parts.next().unwrap().parse()?;
+    let minute = parts
+        .next()
+        .unwrap()
+        .parse()
+        .wrap_err_with(|| format!("failed to parse minute part from time value {time}"))?;
+    let second = parts
+        .next()
+        .unwrap()
+        .parse()
+        .wrap_err_with(|| format!("failed to parse second part from time value {time}"))?;
 
     let time = Pacific
         .from_utc_datetime(&Utc::now().naive_utc())
@@ -112,18 +125,30 @@ fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
 fn read_stops(stmt: &mut Statement) -> Result<Vec<Stop>> {
     let mut stops = Vec::new();
 
-    while let sqlite::State::Row = stmt.next()? {
-        let station_name: String = stmt.read(0)?;
+    while let sqlite::State::Row = stmt.next().wrap_err("error reading from sqlite")? {
+        let station_name: String = stmt
+            .read(0)
+            .wrap_err("error reading column 0 from sqlite query")?;
 
-        let station_id: i64 = stmt.read(1)?;
+        let station_id: i64 = stmt
+            .read(1)
+            .wrap_err("error reading column 1 from sqlite query")?;
 
-        let departure_str: String = stmt.read(2)?;
+        let departure_str: String = stmt
+            .read(2)
+            .wrap_err("error reading column 2 from sqlite query")?;
+
         let departure = parse_time(&departure_str)?;
 
-        let arrival_str: String = stmt.read(3)?;
+        let arrival_str: String = stmt
+            .read(3)
+            .wrap_err("error reading column 3 from sqlite query")?;
+
         let arrival = parse_time(&arrival_str)?;
 
-        let trip_id = stmt.read(4)?;
+        let trip_id = stmt
+            .read(4)
+            .wrap_err("error reading column 4 from sqlite query")?;
 
         stops.push(Stop {
             trip_id,

@@ -1,16 +1,17 @@
 use std::{collections::HashMap, time::Duration};
 
 use crate::{
-    error::Error,
+    error::HttpResult,
     types::{self, MonitoredStopVisit},
     AppState, LiveStatusCache, Result,
 };
 use actix_web::{client::Client, http::StatusCode, web, HttpResponse, Responder};
 use chrono::{DateTime, FixedOffset, Local};
+use eyre::{bail, Context};
 use log::{debug, info};
 use train_schedules_common::{Station, Stop};
 
-pub async fn live_station(data: web::Data<AppState>) -> Result<impl Responder> {
+pub async fn live_station(data: web::Data<AppState>) -> HttpResult<impl Responder> {
     Ok(HttpResponse::Ok().json(
         get_station_live_status(
             &data.client,
@@ -68,7 +69,12 @@ async fn get_station_live_status(
         "https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json"
     );
 
-    let mut response = client.get(&url).send().await?;
+    // TODO: this error is bad
+    let mut response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| eyre::eyre!("{e}"))?;
 
     let body = response.body().await?;
 
@@ -81,13 +87,21 @@ async fn get_station_live_status(
 
     if response.status() != StatusCode::OK {
         let body = String::from_utf8_lossy(&body).into_owned();
-        return Err(Error::FiveOneOneServer {
-            code: response.status(),
-            body,
-        });
+
+        bail!(
+            "Received HTTP {} from 511.org API: {body}",
+            response.status()
+        );
     }
 
-    let resp: types::ApiResponse = serde_json::from_slice(&body[3..])?;
+    let resp: types::ApiResponse = serde_json::from_slice(&body[3..]).wrap_err_with(|| {
+        let body = String::from_utf8_lossy(&body).into_owned();
+
+        format!(
+            "failed to parse 511.org API response as json. body: {}",
+            body
+        )
+    })?;
 
     debug!("Parsed API response: {:?}", resp);
     let mut trips = Vec::new();

@@ -1,8 +1,8 @@
-use crate::{AppState, Result};
+use crate::{AppState, HttpResult, Result};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use train_schedules_common::Station;
 
-pub async fn stations(_req: HttpRequest, data: web::Data<AppState>) -> Result<impl Responder> {
+pub async fn stations(_req: HttpRequest, data: web::Data<AppState>) -> HttpResult<impl Responder> {
     Ok(HttpResponse::Ok().json(load_all_stations(&data.connection)?))
 }
 

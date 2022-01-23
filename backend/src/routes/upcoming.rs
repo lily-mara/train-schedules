@@ -1,8 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{error::Error, read_stops, AppState, Result};
+use crate::{
+    error::{Error, HttpResult},
+    read_stops, AppState, Result,
+};
 use actix_web::{web, HttpResponse};
 use chrono::{Datelike, FixedOffset, Local, Weekday};
+use eyre::{bail, Context};
 use serde::Deserialize;
 use train_schedules_common::{Station, Stop, TwoStop, TwoStopList};
 
@@ -15,7 +19,7 @@ pub struct UpcomingTripsQuery {
 pub async fn upcoming_trips(
     query: web::Query<UpcomingTripsQuery>,
     data: web::Data<AppState>,
-) -> Result<HttpResponse> {
+) -> HttpResult<HttpResponse> {
     match query.end {
         Some(end) => Ok(HttpResponse::Ok().json(get_twostops(data, query.start, end).await?)),
         None => Ok(HttpResponse::Ok().json(get_upcoming(data, query.start).await?)),
@@ -44,8 +48,10 @@ async fn get_upcoming(data: web::Data<AppState>, station_id: i64) -> Result<Vec<
     let mut trips = Vec::new();
 
     for id in trip_ids {
-        stmt.bind(1, id)?;
-        stmt.bind(2, station_id)?;
+        stmt.bind(1, id)
+            .wrap_err("failed to bind trip ID to sqlite statement")?;
+        stmt.bind(2, station_id)
+            .wrap_err("failed to bind station ID to sqlite statement")?;
 
         for stop in read_stops(&mut stmt)? {
             if stop.departure < now || stop.arrival < now {
@@ -55,7 +61,7 @@ async fn get_upcoming(data: web::Data<AppState>, station_id: i64) -> Result<Vec<
             trips.push(stop);
         }
 
-        stmt.reset()?;
+        stmt.reset().wrap_err("failed to reset sqlite statement")?;
     }
 
     trips.sort_by(|a, b| a.departure.cmp(&b.departure));
@@ -96,9 +102,11 @@ async fn get_twostops(
     let mut trips = HashMap::new();
 
     for id in trip_ids {
-        stmt.bind(1, id)?;
-        stmt.bind(2, start_station_id)?;
-        stmt.bind(3, end_station_id)?;
+        stmt.bind(1, id).wrap_err("failed to bind trip id")?;
+        stmt.bind(2, start_station_id)
+            .wrap_err("failed to bind start station id")?;
+        stmt.bind(3, end_station_id)
+            .wrap_err("failed to bind end station id")?;
 
         for stop in read_stops(&mut stmt)? {
             let station_name = match stop.station_id {
@@ -161,23 +169,25 @@ fn get_active_service_ids(connection: &sqlite::Connection) -> Result<Vec<String>
 
     let today_num = (today.year() as i64 * 100 + today.month() as i64) * 100 + today.day() as i64;
 
-    let mut stmt = connection.prepare(format!(
-        "
+    let mut stmt = connection
+        .prepare(format!(
+            "
         select service_id
         from calendar
         where
             {} = 1 and ? >= start_date and ? <= end_date
         ",
-        weekday
-    ))?;
+            weekday
+        ))
+        .wrap_err("prepare service query")?;
 
-    stmt.bind(1, today_num)?;
-    stmt.bind(2, today_num)?;
+    stmt.bind(1, today_num).wrap_err("bind today_num index 1")?;
+    stmt.bind(2, today_num).wrap_err("bind today_num index 2")?;
 
     let mut ids = Vec::new();
 
-    while let sqlite::State::Row = stmt.next()? {
-        ids.push(stmt.read(0)?);
+    while let sqlite::State::Row = stmt.next().wrap_err("read row for service")? {
+        ids.push(stmt.read(0).wrap_err("read column 0 for service_id")?);
     }
 
     Ok(ids)
@@ -196,12 +206,12 @@ pub fn load_station(connection: &sqlite::Connection, station_id: i64) -> Result<
 
     stmt.bind(1, station_id)?;
 
-    match stmt.next()? {
+    match stmt.next().wrap_err("read row for station")? {
         sqlite::State::Row => Ok(Station {
-            name: stmt.read(0)?,
-            station_id: stmt.read::<i64>(1)?,
+            name: stmt.read(0).wrap_err("read name")?,
+            station_id: stmt.read::<i64>(1).wrap_err("read station_id")?,
         }),
-        sqlite::State::Done => Err(Error::NoSuchStation(station_id)),
+        sqlite::State::Done => bail!("No station with ID {station_id} found"),
     }
 }
 
