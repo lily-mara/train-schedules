@@ -1,5 +1,6 @@
 use crate::context::host;
 use crate::live_status::live_status;
+use crate::time;
 use crate::views::{station_list::StationFilterList, twostop::Twostop};
 use serde::Serialize;
 use train_schedules_common::*;
@@ -20,10 +21,11 @@ pub fn view(props: &TwostopListProps) -> Html {
     let stations = use_state_eq::<Vec<Station>, _>(Vec::new);
 
     crate::fetch::fetch(format!("{host}/api/stations"), stations.clone());
+    let now = time::now();
 
     let live = live_status(&host);
 
-    crate::fetch::fetch_once(
+    crate::fetch::fetch(
         format!(
             "{host}/api/upcoming-trips?start={}&end={}",
             props.start, props.end
@@ -33,16 +35,21 @@ pub fn view(props: &TwostopListProps) -> Html {
 
     // TODO: hide twostops that already completed with some kind of time filtering and interval
 
-    if twostops.trips.is_empty() {
-        return html! {
-            <h1>{ "No trips found" }</h1>
-        };
-    }
-
     let flipped_url = format!(
         "/c/station/{}/{}",
         twostops.end.station_id, twostops.start.station_id
     );
+
+    let twostops_upcoming = twostops
+        .trips
+        .iter()
+        .filter(|twostop| {
+            let start_live = live.get(twostop.start.station_id, twostop.trip_id);
+            let time = start_live.unwrap_or_else(|| twostop.start.clone());
+
+            time.departure > now
+        })
+        .take(5);
 
     html! {
         <div class="TripList">
@@ -56,7 +63,7 @@ pub fn view(props: &TwostopListProps) -> Html {
                 {twostops.end.name.clone()}
             </h1>
             <h2>{ "Next 5 trips" }</h2>
-            { for twostops.trips.iter().take(5).map(|twostop| {
+            { for twostops_upcoming.map(|twostop| {
                 let twostop = twostop.clone();
                 let start_live = live.get(twostop.start.station_id, twostop.trip_id);
                 let end_live = live.get(twostop.end.station_id, twostop.trip_id);

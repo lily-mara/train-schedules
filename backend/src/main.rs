@@ -1,16 +1,15 @@
-use crate::error::{HttpResult, Result};
-use actix_files::{Files, NamedFile};
-use actix_web::{client::Client, web, App, HttpServer};
-use chrono::prelude::*;
-use chrono_tz::US::Pacific;
+use crate::error::{handle_rejection, Result};
+use db::Service;
 use eyre::Context;
-use sqlite::Statement;
+use reqwest::Client;
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
 use tracing::info;
 use train_schedules_common::*;
 use ttl_cache::TtlCache;
+use warp::{query, Filter};
 
+mod db;
 mod error;
 mod routes;
 mod types;
@@ -18,13 +17,15 @@ mod types;
 type LiveStatusCache = Arc<RwLock<TtlCache<(), Vec<Stop>>>>;
 
 pub struct AppState {
-    pub connection: sqlite::Connection,
+    pub stations: Vec<Station>,
+    pub stops: Vec<Stop>,
     pub client: Client,
     pub api_key: String,
     pub live_status_cache: LiveStatusCache,
+    pub services: Vec<Service>,
 }
 
-#[actix_rt::main]
+#[tokio::main]
 async fn main() -> eyre::Result<()> {
     let _ = dotenv::dotenv();
 
@@ -33,137 +34,64 @@ async fn main() -> eyre::Result<()> {
 
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "/var/schedules.db".to_owned());
     let api_key = env::var("API_KEY").wrap_err("API_KEY environment variable is required")?;
-    let static_file_path = env::var("STATIC_FILE_PATH");
+    // let static_file_path = env::var("STATIC_FILE_PATH");
 
     let connection =
         sqlite::Connection::open(&db_path).wrap_err("failed to open sqlite connection")?;
-    connection
-        .execute("select 1")
-        .wrap_err("failed to execute sqlite test command")?;
 
     info!(socket = "0.0.0.0:8088", "listening");
 
     let live_status_cache = Arc::new(RwLock::new(TtlCache::new(50)));
 
-    HttpServer::new(move || {
-        let mut app = App::new()
-            .data(AppState {
-                connection: sqlite::Connection::open(&db_path).unwrap(),
-                api_key: api_key.clone(),
-                client: Client::new(),
-                live_status_cache: live_status_cache.clone(),
-            })
-            .route(
-                "/api/stations",
-                web::get().to(crate::routes::stations::stations),
-            )
+    let state = Arc::new(AppState {
+        api_key: api_key.clone(),
+        client: Client::new(),
+        live_status_cache: live_status_cache.clone(),
+        stations: db::all_stations(&connection)?,
+        stops: db::all_stops(&connection)?,
+        services: db::services(&connection)?,
+    });
+
+    let state = warp::any().map(move || state.clone());
+
+    let stations = warp::path!("api" / "stations")
+        .and(state.clone())
+        .map(|state: Arc<AppState>| warp::reply::json(&state.stations));
+
+    let upcoming = warp::path!("api" / "upcoming-trips")
+        .and(query())
+        .and(state.clone())
+        .and_then(
+            |query, state| async move { crate::routes::upcoming::upcoming_trips(query, state) },
+        );
+
+    let trip = warp::path!("api" / "trip")
+        .and(query())
+        .and(state.clone())
+        .map(crate::routes::trip::trip);
+
+    let live = warp::path!("api" / "stations" / "live")
+        .and(state.clone())
+        .and_then(crate::routes::live::live_station);
+
+    let index = warp::any().and(warp::filters::fs::file("/var/www/index.html"));
+
+    let routes = warp::get()
+        .and(index.or(stations).or(upcoming).or(trip).or(live))
+        .recover(handle_rejection);
+
+    warp::serve(routes).run(([0, 0, 0, 0], 8088)).await;
+
+    /*
             .route(
                 "/api/stations/live",
                 web::get().to(crate::routes::live::live_station),
             )
-            .route(
-                "/api/upcoming-trips",
-                web::get().to(crate::routes::upcoming::upcoming_trips),
-            )
-            .route("/api/trip", web::get().to(crate::routes::trip::trip))
-            .route("/", web::get().to(index));
 
         if let Ok(path) = &static_file_path {
             app = app.service(Files::new("/", path));
         }
-
-        app.default_service(web::route().to(index))
-    })
-    .bind("0.0.0.0:8088")
-    .wrap_err("failed to bind server")?
-    .run()
-    .await
-    .wrap_err("Failed to run server")?;
+    */
 
     Ok(())
-}
-
-async fn index() -> HttpResult<NamedFile> {
-    Ok(NamedFile::open("/var/www/index.html").wrap_err("failed to read index")?)
-}
-
-fn parse_time(time: &str) -> Result<DateTime<FixedOffset>> {
-    let mut parts = time.split(':');
-
-    let mut add_days = 0;
-    let mut hour = parts
-        .next()
-        .unwrap()
-        .parse()
-        .wrap_err_with(|| format!("failed to parse hour part from time value {time}"))?;
-
-    while hour >= 24 {
-        hour -= 24;
-        add_days += 1;
-    }
-
-    let minute = parts
-        .next()
-        .unwrap()
-        .parse()
-        .wrap_err_with(|| format!("failed to parse minute part from time value {time}"))?;
-    let second = parts
-        .next()
-        .unwrap()
-        .parse()
-        .wrap_err_with(|| format!("failed to parse second part from time value {time}"))?;
-
-    let time = Pacific
-        .from_utc_datetime(&Utc::now().naive_utc())
-        .date()
-        .and_hms(hour, minute, second)
-        + chrono::Duration::days(add_days);
-
-    Ok(time.with_timezone(&FixedOffset::west(0)))
-}
-
-/// Expecting a statement with the following select columns:
-/// - stop_name
-/// - station_id
-/// - departure_time
-/// - arrival_time
-/// - stop_times.trip_id
-fn read_stops(stmt: &mut Statement) -> Result<Vec<Stop>> {
-    let mut stops = Vec::new();
-
-    while let sqlite::State::Row = stmt.next().wrap_err("error reading from sqlite")? {
-        let station_name: String = stmt
-            .read(0)
-            .wrap_err("error reading column 0 from sqlite query")?;
-
-        let station_id: i64 = stmt
-            .read(1)
-            .wrap_err("error reading column 1 from sqlite query")?;
-
-        let departure_str: String = stmt
-            .read(2)
-            .wrap_err("error reading column 2 from sqlite query")?;
-
-        let departure = parse_time(&departure_str)?;
-
-        let arrival_str: String = stmt
-            .read(3)
-            .wrap_err("error reading column 3 from sqlite query")?;
-
-        let arrival = parse_time(&arrival_str)?;
-
-        let trip_id = stmt
-            .read(4)
-            .wrap_err("error reading column 4 from sqlite query")?;
-
-        stops.push(Stop {
-            trip_id,
-            station_id,
-            station_name,
-            arrival,
-            departure,
-        });
-    }
-
-    Ok(stops)
 }

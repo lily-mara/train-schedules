@@ -4,14 +4,8 @@ version = "0.1.0"
 authors = ["Lily Mara <lilymara@fastmail.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 sqlite = "0.26.0"
-actix-web = { version = "3.0.0", features = [
-    "rustls"
-], default-features = false }
-actix-rt = "1.1.1"
-actix-files = "0.5"
 serde = "1.0.99"
 serde_json = "1.0.40"
 auto_from = "0.3.0"
@@ -20,9 +14,11 @@ train-schedules-common = { path = "../common" }
 color-backtrace = "0.5"
 chrono-tz = "0.6.1"
 ttl_cache = "0.5.1"
-tokio = { version = "1.15.0", features = ["sync"] }
+tokio = { version = "1.15.0", features = ["full"] }
 dotenv = "0.15.0"
 eyre = "0.6"
 thiserror = "1.0.30"
 tracing-subscriber = "0.3.6"
 tracing = "0.1.29"
+warp = "0.3.2"
+reqwest = "0.11"

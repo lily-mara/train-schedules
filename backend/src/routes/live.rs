@@ -1,102 +1,57 @@
-use std::{collections::HashMap, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use crate::{
-    error::HttpResult,
+    error::{HttpResult, RejectionExt},
     types::{self, MonitoredStopVisit},
-    AppState, LiveStatusCache, Result,
+    AppState, Result,
 };
-use actix_web::{client::Client, http::StatusCode, web, HttpResponse, Responder};
 use chrono::{DateTime, FixedOffset, Local};
 use eyre::{bail, Context};
+use reqwest::StatusCode;
 use tracing::{debug, info};
 use train_schedules_common::{Station, Stop};
 
-pub async fn live_station(data: web::Data<AppState>) -> HttpResult<impl Responder> {
-    Ok(HttpResponse::Ok().json(
-        get_station_live_status(
-            &data.client,
-            &data.api_key,
-            &data.live_status_cache,
-            &data.connection,
-        )
-        .await?,
+pub async fn live_station(data: Arc<AppState>) -> HttpResult {
+    Ok(warp::reply::json(
+        &get_station_live_status(&data).await.rejection()?,
     ))
 }
 
-pub fn stopcode_station_mappings(connection: &sqlite::Connection) -> Result<HashMap<i64, Station>> {
-    let mut stmt = connection.prepare(
-        "
-            select stop_code, stop_name, station_id
-            from stops
-        ",
-    )?;
-
-    let mut mapping = HashMap::new();
-
-    while let sqlite::State::Row = stmt.next()? {
-        mapping.insert(
-            stmt.read(0)?,
-            Station {
-                name: stmt.read(1)?,
-                station_id: stmt.read(2)?,
-            },
-        );
-    }
-
-    Ok(mapping)
-}
-
-async fn get_station_live_status(
-    client: &Client,
-    api_key: &str,
-    cache: &LiveStatusCache,
-    connection: &sqlite::Connection,
-) -> Result<Vec<Stop>> {
-    if let Some(cached) = cache.read().await.get(&()).cloned() {
+async fn get_station_live_status(data: &AppState) -> Result<Vec<Stop>> {
+    if let Some(cached) = data.live_status_cache.read().await.get(&()).cloned() {
         return Ok(cached);
     }
 
-    let mut lock = cache.write().await;
+    let mut lock = data.live_status_cache.write().await;
     // Check the cache again in case some other coroutine wrote while we were
     // waiting to take the lock
     if let Some(cached) = lock.get(&()).cloned() {
         return Ok(cached);
     }
 
-    let stopcode_mappings = stopcode_station_mappings(connection)?;
-
+    let api_key = &data.api_key;
     let url = format!(
         "https://api.511.org/transit/StopMonitoring?api_key={api_key}&agency=CT&format=json"
     );
 
-    // TODO: this error is bad
-    let mut response = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| eyre::eyre!("{e}"))?;
+    let response = data.client.get(&url).send().await?;
 
-    let body = response.body().await?;
+    let status = response.status();
 
-    if response.status() == StatusCode::TOO_MANY_REQUESTS {
+    let body = response.text().await?;
+
+    if status == StatusCode::TOO_MANY_REQUESTS {
         info!("Recieved HTTP 429 from 511.org API - bypassing requests for next minute");
         lock.insert((), Vec::new(), Duration::from_secs(60));
 
         return Ok(Vec::new());
     }
 
-    if response.status() != StatusCode::OK {
-        let body = String::from_utf8_lossy(&body).into_owned();
-
-        bail!(
-            "Received HTTP {} from 511.org API: {body}",
-            response.status()
-        );
+    if status != StatusCode::OK {
+        bail!("Received HTTP {status} from 511.org API: {body}");
     }
 
-    let resp: types::ApiResponse = serde_json::from_slice(&body[3..]).wrap_err_with(|| {
-        let body = String::from_utf8_lossy(&body).into_owned();
-
+    let resp: types::ApiResponse = serde_json::from_str(&body).wrap_err_with(|| {
         format!(
             "failed to parse 511.org API response as json. body: {}",
             body
@@ -111,7 +66,7 @@ async fn get_station_live_status(
         .StopMonitoringDelivery
         .MonitoredStopVisit
     {
-        if let Some(stop) = try_find_stop(visit, &stopcode_mappings) {
+        if let Some(stop) = try_find_stop(visit, &data.stations) {
             trips.push(stop);
         }
     }
@@ -121,10 +76,7 @@ async fn get_station_live_status(
     Ok(trips)
 }
 
-fn try_find_stop(
-    visit: MonitoredStopVisit,
-    stopcode_mappings: &HashMap<i64, Station>,
-) -> Option<Stop> {
+fn try_find_stop(visit: MonitoredStopVisit, stations: &[Station]) -> Option<Stop> {
     let vehicle_ref = visit.MonitoredVehicleJourney.VehicleRef?;
     let trip_id = vehicle_ref.parse().ok()?;
 
@@ -135,9 +87,14 @@ fn try_find_stop(
         .parse()
         .ok()?;
 
-    let station = stopcode_mappings.get(&stopcode)?;
+    let station = stations
+        .iter()
+        .find(|s| s.stop_codes.contains(&stopcode))?
+        .clone();
 
     Some(Stop {
+        // TODO: find the service ID here
+        service_id: String::new(),
         station_name: station.name.clone(),
         station_id: station.station_id,
         trip_id,
@@ -147,7 +104,6 @@ fn try_find_stop(
                 .MonitoredCall
                 .ExpectedArrivalTime?,
         ),
-
         departure: to_local_time(
             visit
                 .MonitoredVehicleJourney

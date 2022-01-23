@@ -12,6 +12,7 @@ pub struct TwoStopList {
 pub struct Station {
     pub name: String,
     pub station_id: i64,
+    pub stop_codes: Vec<i64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -41,4 +42,5 @@ pub struct Stop {
     pub station_name: String,
     pub arrival: DateTime<FixedOffset>,
     pub departure: DateTime<FixedOffset>,
+    pub service_id: String,
 }
