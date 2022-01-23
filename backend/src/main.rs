@@ -4,10 +4,10 @@ use actix_web::{client::Client, web, App, HttpServer};
 use chrono::prelude::*;
 use chrono_tz::US::Pacific;
 use eyre::Context;
-use log::*;
 use sqlite::Statement;
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
+use tracing::info;
 use train_schedules_common::*;
 use ttl_cache::TtlCache;
 
@@ -29,7 +29,7 @@ async fn main() -> eyre::Result<()> {
     let _ = dotenv::dotenv();
 
     color_backtrace::install();
-    env_logger::init();
+    tracing_subscriber::fmt::init();
 
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "/var/schedules.db".to_owned());
     let api_key = env::var("API_KEY").wrap_err("API_KEY environment variable is required")?;
@@ -41,12 +41,11 @@ async fn main() -> eyre::Result<()> {
         .execute("select 1")
         .wrap_err("failed to execute sqlite test command")?;
 
-    info!("Listening on 0.0.0.0:8088");
+    info!(socket = "0.0.0.0:8088", "listening");
 
     let live_status_cache = Arc::new(RwLock::new(TtlCache::new(50)));
 
     HttpServer::new(move || {
-        debug!("Opening sqlite connection: {}", db_path);
         let mut app = App::new()
             .data(AppState {
                 connection: sqlite::Connection::open(&db_path).unwrap(),
@@ -76,7 +75,7 @@ async fn main() -> eyre::Result<()> {
         app.default_service(web::route().to(index))
     })
     .bind("0.0.0.0:8088")
-    .unwrap()
+    .wrap_err("failed to bind server")?
     .run()
     .await
     .wrap_err("Failed to run server")?;

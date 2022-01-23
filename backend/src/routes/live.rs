@@ -8,7 +8,7 @@ use crate::{
 use actix_web::{client::Client, http::StatusCode, web, HttpResponse, Responder};
 use chrono::{DateTime, FixedOffset, Local};
 use eyre::{bail, Context};
-use log::{debug, info};
+use tracing::{debug, info};
 use train_schedules_common::{Station, Stop};
 
 pub async fn live_station(data: web::Data<AppState>) -> HttpResult<impl Responder> {
