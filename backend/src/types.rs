@@ -31,7 +31,7 @@ pub struct MonitoredVehicleJourney {
 
 #[derive(Deserialize, Debug)]
 pub struct MonitoredCall {
-    pub ExpectedArrivalTime: DateTime<FixedOffset>,
-    pub ExpectedDepartureTime: DateTime<FixedOffset>,
+    pub ExpectedArrivalTime: Option<DateTime<FixedOffset>>,
+    pub ExpectedDepartureTime: Option<DateTime<FixedOffset>>,
     pub StopPointRef: String,
 }

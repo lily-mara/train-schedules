@@ -11,4 +11,6 @@ COPY ./dist /var/www
 
 EXPOSE 8088
 
+ENV STATIC_FILE_PATH=/var/www/
+
 CMD /usr/bin/train-backend

@@ -145,14 +145,14 @@ fn try_find_stop(
             visit
                 .MonitoredVehicleJourney
                 .MonitoredCall
-                .ExpectedArrivalTime,
+                .ExpectedArrivalTime?,
         ),
 
         departure: to_local_time(
             visit
                 .MonitoredVehicleJourney
                 .MonitoredCall
-                .ExpectedDepartureTime,
+                .ExpectedDepartureTime?,
         ),
     })
 }

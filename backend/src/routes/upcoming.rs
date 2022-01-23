@@ -1,9 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{
-    error::{Error, HttpResult},
-    read_stops, AppState, Result,
-};
+use crate::{error::HttpResult, read_stops, AppState, Result};
 use actix_web::{web, HttpResponse};
 use chrono::{Datelike, FixedOffset, Local, Weekday};
 use eyre::{bail, Context};

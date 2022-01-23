@@ -6,7 +6,7 @@ use chrono_tz::US::Pacific;
 use eyre::Context;
 use log::*;
 use sqlite::Statement;
-use std::env;
+use std::{env, sync::Arc};
 use tokio::sync::RwLock;
 use train_schedules_common::*;
 use ttl_cache::TtlCache;
@@ -15,7 +15,7 @@ mod error;
 mod routes;
 mod types;
 
-type LiveStatusCache = RwLock<TtlCache<(), Vec<Stop>>>;
+type LiveStatusCache = Arc<RwLock<TtlCache<(), Vec<Stop>>>>;
 
 pub struct AppState {
     pub connection: sqlite::Connection,
@@ -33,6 +33,7 @@ async fn main() -> eyre::Result<()> {
 
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "/var/schedules.db".to_owned());
     let api_key = env::var("API_KEY").wrap_err("API_KEY environment variable is required")?;
+    let static_file_path = env::var("STATIC_FILE_PATH");
 
     let connection =
         sqlite::Connection::open(&db_path).wrap_err("failed to open sqlite connection")?;
@@ -42,14 +43,16 @@ async fn main() -> eyre::Result<()> {
 
     info!("Listening on 0.0.0.0:8088");
 
+    let live_status_cache = Arc::new(RwLock::new(TtlCache::new(50)));
+
     HttpServer::new(move || {
         debug!("Opening sqlite connection: {}", db_path);
-        App::new()
+        let mut app = App::new()
             .data(AppState {
                 connection: sqlite::Connection::open(&db_path).unwrap(),
                 api_key: api_key.clone(),
                 client: Client::new(),
-                live_status_cache: RwLock::new(TtlCache::new(50)),
+                live_status_cache: live_status_cache.clone(),
             })
             .route(
                 "/api/stations",
@@ -64,9 +67,13 @@ async fn main() -> eyre::Result<()> {
                 web::get().to(crate::routes::upcoming::upcoming_trips),
             )
             .route("/api/trip", web::get().to(crate::routes::trip::trip))
-            .route("/", web::get().to(index))
-            .service(Files::new("/", "/var/www/"))
-            .default_service(web::route().to(index))
+            .route("/", web::get().to(index));
+
+        if let Ok(path) = &static_file_path {
+            app = app.service(Files::new("/", path));
+        }
+
+        app.default_service(web::route().to(index))
     })
     .bind("0.0.0.0:8088")
     .unwrap()
