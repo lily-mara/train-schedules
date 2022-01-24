@@ -13,7 +13,7 @@ bootstrap:
     cd backend && ./new-db.sh
 
 dist:
-    cargo build --release -p train-backend
+    cargo build -p train-backend
     trunk build --release
 
 deploy:

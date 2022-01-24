@@ -1,2 +1,3 @@
 target
 !target/release/train-backend
+!target/debug/train-backend

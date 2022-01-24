@@ -8,7 +8,7 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 COPY ./backend/schedules.db /var/
-COPY ./target/release/train-backend /usr/bin/train-backend
+COPY ./target/debug/train-backend /usr/bin/train-backend
 COPY ./dist /var/www
 
 EXPOSE 8088
