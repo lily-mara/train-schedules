@@ -39,7 +39,11 @@ pub fn all_stations(connection: &sqlite::Connection) -> Result<Vec<Station>> {
             .push(stop_code);
     }
 
-    Ok(stations.into_values().collect())
+    let mut stations = stations.into_values().collect::<Vec<_>>();
+
+    stations.sort_by(|a, b| a.stop_codes[0].cmp(&b.stop_codes[0]));
+
+    Ok(stations)
 }
 
 pub fn all_stops(connection: &sqlite::Connection) -> Result<Vec<Stop>> {
