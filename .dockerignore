@@ -1,3 +1,5 @@
+backend/target
+frontend/target
 target
-!target/release/train-backend
-!target/debug/train-backend
+!backend/target/release/train-backend
+!backend/target/debug/train-backend
