@@ -1,12 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::{
-    db::Service,
-    error::{HttpResult, RejectionExt},
-    AppState, Result,
+use crate::{db::Service, error::HttpResult, State};
+use axum::{
+    extract::{Extension, Query},
+    Json,
 };
 use chrono::{Datelike, FixedOffset, Local};
-use serde::Deserialize;
+use eyre::Result;
+use serde::{Deserialize, Serialize};
 use train_schedules_common::{Station, Stop, TwoStop, TwoStopList};
 
 #[derive(Deserialize, Debug, Clone)]
@@ -15,16 +16,31 @@ pub struct UpcomingTripsQuery {
     end: Option<i64>,
 }
 
-pub fn upcoming_trips(query: UpcomingTripsQuery, data: Arc<AppState>) -> HttpResult {
+fn as_json_value<T>(x: &T) -> Result<serde_json::Value>
+where
+    T: Serialize,
+{
+    let str = serde_json::to_string(x)?;
+    let value = serde_json::from_str(&str)?;
+
+    Ok(value)
+}
+
+pub async fn upcoming_trips(
+    Query(query): Query<UpcomingTripsQuery>,
+    Extension(data): Extension<Arc<State>>,
+) -> HttpResult<serde_json::Value> {
     match query.end {
-        Some(end) => Ok(warp::reply::json(
-            &get_twostops(&*data, query.start, end).rejection()?,
-        )),
-        None => Ok(warp::reply::json(&get_upcoming(&*data, query.start))),
+        Some(end) => Ok(Json(as_json_value(&get_twostops(
+            &*data,
+            query.start,
+            end,
+        )?)?)),
+        None => Ok(Json(as_json_value(&get_upcoming(&*data, query.start))?)),
     }
 }
 
-fn get_upcoming(data: &AppState, station_id: i64) -> Vec<Stop> {
+fn get_upcoming(data: &State, station_id: i64) -> Vec<Stop> {
     let services = active_service_ids(&data.services);
 
     let now = Local::now().with_timezone(&FixedOffset::east(0));
@@ -51,11 +67,7 @@ fn station(id: i64, stations: &[Station]) -> Result<Station> {
         .ok_or_else(|| eyre::eyre!("no station found with id {id}"))
 }
 
-fn get_twostops(
-    data: &AppState,
-    start_station_id: i64,
-    end_station_id: i64,
-) -> Result<TwoStopList> {
+fn get_twostops(data: &State, start_station_id: i64, end_station_id: i64) -> Result<TwoStopList> {
     let services = active_service_ids(&data.services);
 
     let trips = twostops(&data.stops, start_station_id, end_station_id, &services);

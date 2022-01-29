@@ -1,12 +1,25 @@
-use crate::error::{handle_rejection, Result};
+use axum::body::Body;
+use axum::extract::Extension;
+use axum::http::Request;
+use axum::response::Response;
+use axum::routing::get;
+use axum::routing::get_service;
+use axum::AddExtensionLayer;
+use axum::Json;
+use axum::Router;
 use db::Service;
 use eyre::Context;
+use eyre::Result;
 use reqwest::Client;
+use std::time::Duration;
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
+use tower_http::services::fs::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
+use tracing::info_span;
+use tracing::Span;
 use train_schedules_common::*;
 use ttl_cache::TtlCache;
-use warp::{query, Filter};
 
 mod db;
 mod error;
@@ -15,7 +28,7 @@ mod types;
 
 type LiveStatusCache = Arc<RwLock<TtlCache<(), Vec<Stop>>>>;
 
-pub struct AppState {
+pub struct State {
     pub stations: Vec<Station>,
     pub stops: Vec<Stop>,
     pub client: Client,
@@ -25,7 +38,7 @@ pub struct AppState {
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
+async fn main() -> Result<()> {
     let _ = dotenv::dotenv();
 
     color_backtrace::install();
@@ -40,7 +53,7 @@ async fn main() -> eyre::Result<()> {
 
     let live_status_cache = Arc::new(RwLock::new(TtlCache::new(50)));
 
-    let state = Arc::new(AppState {
+    let state = Arc::new(State {
         api_key: api_key.clone(),
         client: Client::new(),
         live_status_cache: live_status_cache.clone(),
@@ -49,44 +62,54 @@ async fn main() -> eyre::Result<()> {
         services: db::services(&connection)?,
     });
 
-    let state = warp::any().map(move || state.clone());
+    let api_routes =
+        Router::new()
+            .route(
+                "/stations",
+                get(|Extension(state): Extension<Arc<State>>| async move {
+                    Json(state.stations.clone())
+                }),
+            )
+            .route(
+                "/upcoming-trips",
+                get(crate::routes::upcoming::upcoming_trips),
+            )
+            .route("/trip", get(crate::routes::trip::trip))
+            .route("/stations/live", get(crate::routes::live::live_station));
 
-    let stations = warp::path!("api" / "stations")
-        .and(state.clone())
-        .map(|state: Arc<AppState>| warp::reply::json(&state.stations));
-
-    let upcoming = warp::path!("api" / "upcoming-trips")
-        .and(query())
-        .and(state.clone())
-        .and_then(
-            |query, state| async move { crate::routes::upcoming::upcoming_trips(query, state) },
+    let app = Router::new()
+        .nest("/api", api_routes)
+        .route(
+            "/c/",
+            get_service(ServeFile::new("/var/www/index.html"))
+                .handle_error(|e: std::io::Error| async move { error::eyre_into_response(e) }),
+        )
+        .route(
+            "/",
+            get_service(ServeDir::new("/var/www/"))
+                .handle_error(|e: std::io::Error| async move { error::eyre_into_response(e) }),
+        )
+        .layer(AddExtensionLayer::new(state))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &Request<Body>| {
+                    info_span!(
+                        "http request",
+                        name = &format!("{} {}", request.method(), request.uri().path())[..],
+                        http.target = request.uri().path(),
+                        http.url = tracing::field::display(&request.uri()),
+                        http.method = request.method().as_str(),
+                        http.status_code = tracing::field::Empty,
+                    )
+                })
+                .on_response(|response: &Response, _duration: Duration, span: &Span| {
+                    span.record("http.status_code", &response.status().as_u16());
+                }),
         );
 
-    let trip = warp::path!("api" / "trip")
-        .and(query())
-        .and(state.clone())
-        .map(crate::routes::trip::trip);
-
-    let live = warp::path!("api" / "stations" / "live")
-        .and(state.clone())
-        .and_then(crate::routes::live::live_station);
-
-    let static_files = warp::any().and(warp::filters::fs::dir("/var/www/"));
-
-    let spa = warp::path("c").and(warp::filters::fs::file("/var/www/index.html"));
-
-    let routes = warp::get()
-        .and(
-            static_files
-                .or(spa)
-                .or(stations)
-                .or(upcoming)
-                .or(trip)
-                .or(live),
-        )
-        .recover(handle_rejection);
-
-    warp::serve(routes).run(([0, 0, 0, 0], 8088)).await;
+    axum::Server::bind(&"0.0.0.0:8088".parse()?)
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
 }

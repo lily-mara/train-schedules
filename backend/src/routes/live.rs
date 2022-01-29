@@ -1,23 +1,23 @@
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    error::{HttpResult, RejectionExt},
+    error::HttpResult,
     types::{self, MonitoredStopVisit},
-    AppState, Result,
+    State,
 };
+use axum::{extract::Extension, Json};
 use chrono::{DateTime, FixedOffset, Local};
+use eyre::Result;
 use eyre::{bail, Context};
 use reqwest::StatusCode;
 use tracing::{debug, info};
 use train_schedules_common::{Station, Stop};
 
-pub async fn live_station(data: Arc<AppState>) -> HttpResult {
-    Ok(warp::reply::json(
-        &get_station_live_status(&data).await.rejection()?,
-    ))
+pub async fn live_station(Extension(data): Extension<Arc<State>>) -> HttpResult<Vec<Stop>> {
+    Ok(Json(get_station_live_status(&data).await?))
 }
 
-async fn get_station_live_status(data: &AppState) -> Result<Vec<Stop>> {
+async fn get_station_live_status(data: &State) -> Result<Vec<Stop>> {
     if let Some(cached) = data.live_status_cache.read().await.get(&()).cloned() {
         return Ok(cached);
     }

@@ -1,16 +1,22 @@
 use std::sync::Arc;
 
-use crate::AppState;
+use crate::State;
+use axum::{
+    extract::{Extension, Query},
+    Json,
+};
 use serde::Deserialize;
 use train_schedules_common::Trip;
-use warp::reply::Json;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TripQuery {
     id: i64,
 }
 
-pub fn trip(query: TripQuery, data: Arc<AppState>) -> Json {
+pub async fn trip(
+    Query(query): Query<TripQuery>,
+    Extension(data): Extension<Arc<State>>,
+) -> Json<Trip> {
     let stops = data
         .stops
         .iter()
@@ -18,7 +24,7 @@ pub fn trip(query: TripQuery, data: Arc<AppState>) -> Json {
         .cloned()
         .collect();
 
-    warp::reply::json(&Trip {
+    Json(Trip {
         trip_id: query.id,
         stops,
     })
