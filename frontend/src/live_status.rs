@@ -30,8 +30,4 @@ impl LiveStatus {
             .find(|s| s.trip_id == trip_id && s.station_id == station_id)
             .cloned()
     }
-
-    pub fn all(&self) -> &[Stop] {
-        &self.stops
-    }
 }

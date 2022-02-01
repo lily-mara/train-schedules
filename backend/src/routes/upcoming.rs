@@ -113,7 +113,7 @@ fn twostops(
 
         trips
             .entry(stop.trip_id)
-            .or_insert(Vec::new())
+            .or_insert_with(Vec::new)
             .push(stop.clone());
     }
 

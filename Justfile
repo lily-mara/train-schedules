@@ -20,10 +20,18 @@ deploy:
     just dist
     flyctl deploy
 
+otel-collector:
+    docker run \
+    --env-file=otel.env \
+    -p 14268:14268 \
+    -p 4317-4318:4317-4318 \
+    -v $(pwd)/opentelemetry-collector.yml:/etc/otel/config.yaml \
+    otel/opentelemetry-collector-contrib:latest
+
 serve-docker:
     just dist
     docker build -t trains .
-    docker run --rm -it -eAPI_KEY=local -p8088:8088 trains
+    docker run --rm -it --env-file otel.env -eAPI_KEY=local -p8088:8088 trains
 
 clean:
     cargo clean

@@ -6,3 +6,4 @@
 train-schedules
 dist
 captain-definition
+otel.env

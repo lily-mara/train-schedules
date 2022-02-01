@@ -25,7 +25,7 @@ pub fn station_list(props: &Properties) -> Html {
     let start_station = match start_station {
         Some((name, station_id)) => html! {
             <>
-                <h1>{ format!("{name}") }</h1>
+                <h1>{ name }</h1>
                 <h2>{"Next 3 departures"}</h2>
                 <StationUpcoming {station_id} count={3} />
                 <h2>{ "Filter by ending station" }</h2>
